@@ -146,14 +146,14 @@ Advance to the next phase only when the current phase's exit criteria are satisf
 ## Phase 0 — Previous Report Verification
 If this PR has been updated with new commits, we must check if a previous vulnerability report exists and was fixed.
 1. Check for open PRs in \`${REPORT_REPO}\` related to this PR by running:
-   \`gh pr list -R ${REPORT_REPO} --search "[${CURRENT_REPO}#${PR}] in:title" --state open --json number,headRefName\`
+   \`gh pr list -R ${REPORT_REPO} --search \"[${CURRENT_REPO}#${PR}] in:title\" --state open --json number,headRefName\`
 2. If an open PR exists:
    a. Clone the \`${REPORT_REPO}\` repo via SSH: \`git clone git@github.com:${REPORT_REPO}.git ${PR_WORKSPACE}/security-audits\`
    b. Change to that directory and checkout the PR branch using \`gh pr checkout <PR_NUMBER>\`.
    c. Read the report file in that branch to understand the previously reported vulnerability.
    d. Analyze the current changes in the target PR branch to determine if the reported vulnerability is now fixed.
    e. If the vulnerability IS fixed:
-      - Comment on the PR in \`${REPORT_REPO}\` using: \`gh pr comment <PR_NUMBER> --body "The problem described in the report is fixed in the latest commits."\`
+      - Comment on the PR in \`${REPORT_REPO}\` using: \`gh pr comment <PR_NUMBER> --body \"The problem described in the report is fixed in the latest commits.\"\`
       - Exit your review successfully (do not proceed to Phase 1).
    f. If the vulnerability is NOT fixed, continue to Phase 1, but do not create a duplicate report for the same issue.
 

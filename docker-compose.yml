@@ -1,9 +1,9 @@
 version: '3.8'
 
 services:
-  pr-reviewer:
+  bouncer:
     build: .
-    container_name: ctf-pr-reviewer
+    container_name: bouncer
     environment:
       # Required tokens
       - GITHUB_TOKEN=${GITHUB_PAT}

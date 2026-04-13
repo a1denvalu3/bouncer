@@ -42,5 +42,5 @@ Bouncer is configured using environment variables. Create a `.env` file in the p
 
 ## Logs and Output
 
-- **Logs:** View the process using `docker logs -f ctf-pr-reviewer`.
+- **Logs:** View the process using \`docker logs -f bouncer\`.
 - **Local Reports:** Raw text reports and the PR state tracking file (`state.json`) are permanently saved to the local `./out/` directory, which is mapped as a volume.

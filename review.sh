@@ -245,7 +245,9 @@ Specific code changes to remediate.
             # Handle the permanent storage requirement safely
             if [ -f "$PR_REPORT" ]; then
                 TIMESTAMP=$(date +"%Y%m%d_%H%M%S")
-                FINAL_REPORT_PATH="/out/${SAFE_REPO_NAME}_PR${PR}_${TIMESTAMP}_report.txt"
+                REPORT_DIR="/out/${SAFE_REPO_NAME}/${PR}"
+                mkdir -p "$REPORT_DIR"
+                FINAL_REPORT_PATH="${REPORT_DIR}/${TIMESTAMP}.txt"
                 
                 mv "$PR_REPORT" "$FINAL_REPORT_PATH"
                 echo "✅ Report for PR #$PR saved to: $FINAL_REPORT_PATH"

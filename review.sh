@@ -57,11 +57,12 @@ for CURRENT_REPO in $(echo "$REPOS" | tr ',' ' ' | tr '\n' ' '); do
         continue
     fi
 
-    # Get list of open PRs updated in the last 4 months
-    FOUR_MONTHS_AGO=$(date -d "4 months ago" +%Y-%m-%d)
-    echo "Looking for open PRs updated since ${FOUR_MONTHS_AGO}..."
+    # Get list of open PRs updated within the configured time window
+    PR_MAX_AGE=${PR_MAX_AGE:-"4 months"}
+    CUTOFF_DATE=$(date -d "${PR_MAX_AGE} ago" +%Y-%m-%d)
+    echo "Looking for open PRs updated since ${CUTOFF_DATE} (Max age: ${PR_MAX_AGE})..."
 
-    PR_DATA=$(gh pr list --search "state:open updated:>=${FOUR_MONTHS_AGO}" --json number,headRefOid,headRefName)
+    PR_DATA=$(gh pr list --search "state:open updated:>=${CUTOFF_DATE}" --json number,headRefOid,headRefName)
 
     if [ -z "$PR_DATA" ] || [ "$PR_DATA" == "[]" ]; then
         echo "No recent open PRs found for $CURRENT_REPO."

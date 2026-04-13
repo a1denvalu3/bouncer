@@ -9,6 +9,8 @@ services:
       - GITHUB_TOKEN=${GITHUB_PAT}
       - OPENROUTER_API_KEY=${OPENROUTER_API_KEY}
       - OPENCODE_MODEL=openrouter/google/gemini-3.1-pro-preview
+      # Time window for pulling PRs
+      - PR_MAX_AGE=${PR_MAX_AGE:-4 months}
       # Repository to open PRs to with findings
       - REPORT_REPO=${REPORT_REPO:-cashubtc/security-audits}
       # E.g., "octocat/Hello-World"

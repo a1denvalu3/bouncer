@@ -1,0 +1,19 @@
+version: '3.8'
+
+services:
+  pr-reviewer:
+    build: .
+    container_name: ctf-pr-reviewer
+    environment:
+      # Required tokens
+      - GITHUB_TOKEN=${GITHUB_PAT}
+      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY}
+      - OPENCODE_MODEL=openrouter/google/gemini-3.1-pro-preview
+      # Repository to open PRs to with findings
+      - REPORT_REPO=${REPORT_REPO:-cashubtc/security-audits}
+      # E.g., "octocat/Hello-World"
+      - REPOS=${REPOS:-cashubtc/nutshell,cashubtc/cashu-ts,cashubtc/numo,cashubtc/coco,cashubtc/cashu.me}
+    volumes:
+      # Maps the local ./out folder to /out inside the container for permanent storage
+      - ./out:/out
+    restart: unless-stopped

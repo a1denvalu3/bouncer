@@ -11,6 +11,8 @@ services:
       - OPENCODE_MODEL=openrouter/google/gemini-3.1-pro-preview
       # Time window for pulling PRs
       - PR_MAX_AGE=${PR_MAX_AGE:-4 months}
+      - SLEEP_DURATION=${SLEEP_DURATION:-60}
+      - SKIP_PRS=${SKIP_PRS:-}
       # Repository to open PRs to with findings
       - REPORT_REPO=${REPORT_REPO:-cashubtc/security-audits}
       # E.g., "octocat/Hello-World"

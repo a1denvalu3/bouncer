@@ -80,6 +80,12 @@ for CURRENT_REPO in $(echo "$REPOS" | tr ',' ' ' | tr '\n' ' '); do
             HEAD_OID=$(_jq '.headRefOid')
             HEAD_REF_NAME=$(_jq '.headRefName')
             
+            if [ -n "$SKIP_PRS" ] && echo "$SKIP_PRS" | tr ',' '\n' | tr -d ' ' | grep -qx "${CURRENT_REPO}#${PR}"; then
+                echo "----------------------------------------"
+                echo "Skipping PR #$PR for $CURRENT_REPO - Excluded by SKIP_PRS configuration."
+                exit 0
+            fi
+            
             LAST_OID=$(jq -r ".[\"${CURRENT_REPO}_${PR}\"] // empty" "$STATE_FILE")
             
             if [ "$HEAD_OID" == "$LAST_OID" ]; then

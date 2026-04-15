@@ -80,6 +80,15 @@ for CURRENT_REPO in $(echo "$REPOS" | tr ',' ' ' | tr '\n' ' '); do
             HEAD_OID=$(_jq '.headRefOid')
             HEAD_REF_NAME=$(_jq '.headRefName')
             
+            # Use flock to ensure we don't process the same PR concurrently across different cron runs
+            LOCK_FILE="/out/lock_${SAFE_REPO_NAME}_${PR}.lock"
+            exec 8> "$LOCK_FILE"
+            if ! flock -n 8; then
+                echo "----------------------------------------"
+                echo "Skipping PR #$PR for $CURRENT_REPO - Already being processed by another session."
+                exit 0
+            fi
+
             if [ -n "$SKIP_PRS" ] && echo "$SKIP_PRS" | tr ',' '\n' | tr -d ' ' | grep -qx "${CURRENT_REPO}#${PR}"; then
                 echo "----------------------------------------"
                 echo "Skipping PR #$PR for $CURRENT_REPO - Excluded by SKIP_PRS configuration."
@@ -128,7 +137,7 @@ Focus on the changes introduced by this specific PR branch compared to the base 
 
 You are a security researcher specializing in finding vulnerabilities in PRs. Your primary focus is identifying critical vulnerabilities introduced by the changes in this PR.
 
-**Task:** Find and confirm the most serious vulnerability introduced in this PR. Write the final report to ${PR_REPORT}. Do NOT EVER comment on the original public PR. If, AND ONLY IF, your finding is backed by a working, executed exploit PoC, you must clone \`git@github.com:${REPORT_REPO}.git\` via SSH, format your finding according to its AGENTS.md conventions, and open a pull request to that repo.
+**Task:** Find and confirm the most serious vulnerability introduced in this PR. Write the final report to ${PR_REPORT}. Do NOT EVER comment on the original public PR. If, AND ONLY IF, your finding is backed by a working, executed exploit PoC, you must clone \`git@github.com:${REPORT_REPO}.git\` via SSH (or fallback to \`gh repo clone ${REPORT_REPO}\`), format your finding according to its AGENTS.md conventions, and open a pull request to that repo.
 Focus area: HIGH severity issues. Theoretical findings are allowed in ${PR_REPORT}, but opening a PR to the ${REPORT_REPO} repository requires a confirmed, working PoC.
 </role>
 
@@ -154,7 +163,7 @@ If this PR has been updated with new commits, we must check if a previous vulner
 1. Check for open PRs in \`${REPORT_REPO}\` related to this PR by running:
    \`gh pr list -R ${REPORT_REPO} --search \"[${CURRENT_REPO}#${PR}] in:title\" --state open --json number,headRefName\`
 2. If an open PR exists:
-   a. Clone the \`${REPORT_REPO}\` repo via SSH: \`git clone git@github.com:${REPORT_REPO}.git ${PR_WORKSPACE}/security-audits\`
+   a. Clone the \`${REPORT_REPO}\` repo via SSH: \`git clone git@github.com:${REPORT_REPO}.git ${PR_WORKSPACE}/security-audits || gh repo clone ${REPORT_REPO} ${PR_WORKSPACE}/security-audits\`
    b. Change to that directory and checkout the PR branch using \`gh pr checkout <PR_NUMBER>\`.
    c. Read the report file in that branch to understand the previously reported vulnerability.
    d. Analyze the current changes in the target PR branch to determine if the reported vulnerability is now fixed.
@@ -184,7 +193,7 @@ For each hypothesis:
 STOP! Do NOT proceed with this phase unless your finding from Phase 3 is \`status: confirmed\` and backed by a working PoC. If your finding is \`status: theoretical\`, exit now.
 
 If you have a CONFIRMED vulnerability strictly introduced by this PR:
-1. Clone the private audits repo to a unique directory: \`git clone git@github.com:${REPORT_REPO}.git ${PR_WORKSPACE}/security-audits\`
+1. Clone the private audits repo to a unique directory: \`git clone git@github.com:${REPORT_REPO}.git ${PR_WORKSPACE}/security-audits || gh repo clone ${REPORT_REPO} ${PR_WORKSPACE}/security-audits\`
 2. Change to that directory for all subsequent commands (e.g. use \`workdir=\"${PR_WORKSPACE}/security-audits\"\` in your bash tool).
 3. Checkout a new branch: \`git checkout -b report/pr-${PR}-<slug>\` (where <slug> is a kebab-case identifier for the finding)
 4. Create the directory structure: \`<project>/<date>/<slug>/\` (where <project> is the repo name without the owner, e.g., \`nutshell\` for \`cashubtc/nutshell\`, and <date> is today's date in \`YYYY-MM-DD\`).

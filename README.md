@@ -31,6 +31,7 @@ Bouncer is configured using environment variables. Create a `.env` file in the p
 - `REPORT_REPO`: The private repository where security findings will be submitted as PRs (default: `cashubtc/security-audits`).
 - `OPENCODE_MODEL`: The AI model to use (default: `openrouter/google/gemini-3.1-pro-preview`).
 - `SLEEP_DURATION`: Time in seconds to sleep between review cycles (default: `60`).
+- `REVIEW_TIMEOUT`: Maximum execution time for a single PR review before it is forcibly killed. Accepts standard `timeout` command formats like "6h", "30m" (default: `6h`).
 - `PR_MAX_AGE`: How far back to look for active PRs. Supports `date` tool formats like "4 months", "30 days", "1 year" (default: `4 months`).
 - `SKIP_PRS`: A comma-separated list of PRs to explicitly ignore, formatted as `org/repo#pr` (e.g., `cashubtc/coco#139,myorg/myrepo#42`).
 

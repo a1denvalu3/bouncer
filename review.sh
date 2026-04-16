@@ -119,7 +119,8 @@ for CURRENT_REPO in $(echo "$REPOS" | tr ',' ' ' | tr '\n' ' '); do
                 exit 1
             fi
 
-            echo "Running opencode analysis on PR #$PR for $CURRENT_REPO..."
+            REVIEW_TIMEOUT=${REVIEW_TIMEOUT:-"6h"}
+            echo "Running opencode analysis on PR #$PR for $CURRENT_REPO (Timeout: $REVIEW_TIMEOUT)..."
             
             PR_REPORT="/out/report_${SAFE_REPO_NAME}_${PR}.txt"
             
@@ -131,7 +132,7 @@ for CURRENT_REPO in $(echo "$REPOS" | tr ',' ' ' | tr '\n' ' '); do
             cp /app/opencode_runner.sh "$PR_WORKSPACE/.opencode_runner.sh"
 
             # Run the bot in its own ephemeral nspawn container
-            systemd-nspawn --ephemeral --quiet --keep-unit --register=no \
+            if ! timeout -k 5m "$REVIEW_TIMEOUT" systemd-nspawn --ephemeral --quiet --keep-unit --register=no \
                 -D /nspawn-root \
                 --bind="$PR_WORKSPACE" \
                 --bind=/out \
@@ -139,7 +140,15 @@ for CURRENT_REPO in $(echo "$REPOS" | tr ',' ' ' | tr '\n' ' '); do
                 -E OPENROUTER_API_KEY="$OPENROUTER_API_KEY" \
                 -E REPORT_REPO="$REPORT_REPO" \
                 -E OPENCODE_MODEL="$OPENCODE_MODEL" \
-                /bin/bash -c "cd $PR_WORKSPACE && ./.opencode_runner.sh"
+                /bin/bash -c "cd $PR_WORKSPACE && ./.opencode_runner.sh"; then
+                
+                EXIT_CODE=$?
+                if [ $EXIT_CODE -eq 124 ] || [ $EXIT_CODE -eq 137 ]; then
+                    echo "⚠️ Review for PR #$PR in $CURRENT_REPO timed out after $REVIEW_TIMEOUT."
+                else
+                    echo "⚠️ Review for PR #$PR in $CURRENT_REPO failed with exit code $EXIT_CODE."
+                fi
+            fi
 
             # Handle the permanent storage requirement safely
             if [ -f "$PR_REPORT" ]; then

@@ -4,6 +4,11 @@ set -e
 # Make sure opencode is in the PATH
 export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/root/.opencode/bin:$PATH"
 
+# Mount tmpfs on /run so systemd-nspawn can create necessary directories
+if ! mountpoint -q /run; then
+    mount -t tmpfs tmpfs /run
+fi
+
 # Default sleep duration to 60 seconds if not provided
 SLEEP_DURATION=${SLEEP_DURATION:-60}
 

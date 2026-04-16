@@ -6,9 +6,17 @@ If a serious vulnerability is confirmed with a working Proof of Concept (PoC), B
 
 ## Features
 - **Continuous Monitoring:** Runs in a continuous loop to check for new or updated PRs.
+- **Secure Isolation (systemd-nspawn):** Safely isolates each PR review and its AI agent inside a nested, ephemeral `systemd-nspawn` container, allowing the AI to execute arbitrary test code and PoCs safely.
 - **State Tracking:** Remembers previously scanned commits to avoid redundant work.
 - **AI-Powered Analysis:** Leverages LLMs to perform hypothesis-driven code review and exploit construction.
 - **Automated Reporting:** Submits actionable, formatted vulnerability reports directly to a private GitHub repo.
+
+## Architecture
+
+Bouncer operates with a nested sandbox approach for maximum safety and modularity:
+1. **Outer Loop (Docker):** The main Bouncer application runs as a privileged Docker container. It polls GitHub for open PRs, maintains the `state.json` tracker, and checks out PR branches into isolated workspace directories.
+2. **Inner Sandbox (systemd-nspawn):** For each PR, Bouncer provisions a temporary, disposable filesystem snapshot (using `rsync`) and injects a customizable prompt (`prompt_template.txt`) alongside an execution script (`opencode_runner.sh`). It then launches an ephemeral `systemd-nspawn` container specifically for that single PR review. 
+3. **Cleanup:** Once the LLM finishes verifying its hypothesis or building a PoC, the ephemeral nspawn container is immediately destroyed. Only the final output report is persisted securely to the outer `/out` volume.
 
 ## Configuration
 
@@ -36,7 +44,7 @@ Bouncer is configured using environment variables. Create a `.env` file in the p
    REPOS=myorg/myrepo1,myorg/myrepo2
    REPORT_REPO=myorg/private-security-audits
    ```
-3. Start the service using Docker Compose:
+3. Start the service using Docker Compose (*Note: The Docker container must run in `privileged` mode to support namespace allocation and nested `systemd-nspawn` containers*):
    ```bash
    docker compose up -d
    ```

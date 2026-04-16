@@ -4,6 +4,7 @@ services:
   bouncer:
     build: .
     container_name: bouncer
+    privileged: true
     environment:
       # Required tokens
       - GITHUB_TOKEN=${GITHUB_PAT}

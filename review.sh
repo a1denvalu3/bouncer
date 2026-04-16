@@ -119,7 +119,7 @@ for CURRENT_REPO in $(echo "$REPOS" | tr ',' ' ' | tr '\n' ' '); do
                 exit 1
             fi
 
-            REVIEW_TIMEOUT=${REVIEW_TIMEOUT:-"15m"}
+            REVIEW_TIMEOUT=${REVIEW_TIMEOUT:-"30m"}
             echo "Running opencode analysis on PR #$PR for $CURRENT_REPO (Timeout: $REVIEW_TIMEOUT)..."
             
             PR_REPORT="/out/report_${SAFE_REPO_NAME}_${PR}.txt"

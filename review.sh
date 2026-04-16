@@ -167,8 +167,5 @@ for CURRENT_REPO in $(echo "$REPOS" | tr ',' ' ' | tr '\n' ' '); do
     done
 done
 
-# Wait for all background processes to finish
-wait
-
-echo "Finished PR review job at $(date)"
+echo "Finished triggering PR review jobs at $(date)"
 echo "=================================================="

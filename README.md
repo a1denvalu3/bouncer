@@ -1,5 +1,6 @@
-# <img src="assets/icon.png" alt="Bouncer Icon" width="48" valign="middle"/> Bouncer
+<div align="center"><img src="assets/icon.png" alt="Bouncer Icon" width="438" height="438"/></div>
 
+# Bouncer
 Bouncer is an automated, continuous security review tool that monitors GitHub Pull Requests for vulnerabilities. It runs inside a Docker container, periodically polling configured repositories. Using AI (`opencode-ai` + OpenRouter), it strictly analyzes new PR diffs to discover critical security vulnerabilities and attempts to verify them. 
 
 If a serious vulnerability is confirmed with a working Proof of Concept (PoC), Bouncer automatically drafts a formatted security report and opens a pull request directly to your designated private security repository.

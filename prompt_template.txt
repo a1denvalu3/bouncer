@@ -71,7 +71,7 @@ If you have a CONFIRMED vulnerability strictly introduced by this PR:
 1. Clone the private audits repo to a unique directory: \`git clone git@github.com:${REPORT_REPO}.git ${PR_WORKSPACE}/security-audits || gh repo clone ${REPORT_REPO} ${PR_WORKSPACE}/security-audits\`
 2. Change to that directory for all subsequent commands (e.g. use \`workdir="${PR_WORKSPACE}/security-audits"\` in your bash tool).
 3. Checkout a new branch: \`git checkout -b report/pr-${PR}-<slug>\` (where <slug> is a kebab-case identifier for the finding)
-4. Create the directory structure: \`<project>/<date>/<slug>/\` (where <project> is the repo name without the owner, e.g., \`nutshell\` for \`cashubtc/nutshell\`, and <date> is today's date in \`YYYY-MM-DD\`).
+4. Create the directory structure: `<project>/<date>/<slug>/` (where <project> is the repo name without the owner, e.g., `repo1` for `myorg/repo1`, and <date> is today's date in `YYYY-MM-DD`).
 5. Write your report to \`<project>/<date>/<slug>/pr-${PR}-report.md\` strictly following the YAML frontmatter and format specified in the \`<report_template>\` below.
 6. (Optional but recommended) Add your exploit to \`__tests__/<slug>/test.ts\` following the \`@scripts/\` import rules defined in \`AGENTS.md\`.
 7. Commit the files: \`git add . && git commit -m "Add report for PR #${PR}: <slug>" && git push -u origin report/pr-${PR}-<slug>\`

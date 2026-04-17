@@ -16,9 +16,9 @@ services:
       - REVIEW_TIMEOUT=${REVIEW_TIMEOUT:-30m}
       - SKIP_PRS=${SKIP_PRS:-}
       # Repository to open PRs to with findings
-      - REPORT_REPO=${REPORT_REPO:-cashubtc/security-audits}
+      - REPORT_REPO=${REPORT_REPO:-myorg/security-audits}
       # E.g., "octocat/Hello-World"
-      - REPOS=${REPOS:-cashubtc/nutshell,cashubtc/cashu-ts,cashubtc/numo,cashubtc/coco,cashubtc/cashu.me}
+      - REPOS=${REPOS:-myorg/repo1,myorg/repo2}
     volumes:
       # Maps the local ./out folder to /out inside the container for permanent storage
       - ./out:/out

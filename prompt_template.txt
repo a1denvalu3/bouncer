@@ -45,7 +45,7 @@ If this PR has been updated with new commits, we must check if a previous vulner
    e. If the vulnerability IS fixed:
       - Comment on the PR in \`${REPORT_REPO}\` using: \`gh pr comment <PR_NUMBER> --body "The problem described in the report is fixed in the latest commits."\`
       - Exit your review successfully (do not proceed to Phase 1).
-   f. If the vulnerability is NOT fixed, continue to Phase 1, but do not create a duplicate report for the same issue.
+   f. If the vulnerability is NOT fixed, continue to Phase 1. If you discover a new vulnerability or need to update the existing report, you MUST commit and push your changes to this *existing* branch rather than creating a new PR.
 
 ## Phase 1 — Context & Threat Model
 1. Use \`git diff [base-branch]...HEAD\` or \`gh pr diff\` to understand exactly what lines were changed.
@@ -70,12 +70,14 @@ STOP! Do NOT proceed with this phase unless your finding from Phase 3 is \`statu
 If you have a CONFIRMED vulnerability strictly introduced by this PR:
 1. Clone the private audits repo to a unique directory: \`git clone git@github.com:${REPORT_REPO}.git ${PR_WORKSPACE}/security-audits || gh repo clone ${REPORT_REPO} ${PR_WORKSPACE}/security-audits\`
 2. Change to that directory for all subsequent commands (e.g. use \`workdir="${PR_WORKSPACE}/security-audits"\` in your bash tool).
-3. Checkout a new branch: \`git checkout -b report/pr-${PR}-<slug>\` (where <slug> is a kebab-case identifier for the finding)
-4. Create the directory structure: `<project>/<date>/<slug>/` (where <project> is the repo name without the owner, e.g., `repo1` for `myorg/repo1`, and <date> is today's date in `YYYY-MM-DD`).
-5. Write your report to \`<project>/<date>/<slug>/pr-${PR}-report.md\` strictly following the YAML frontmatter and format specified in the \`<report_template>\` below.
-6. (Optional but recommended) Add your exploit to \`__tests__/<slug>/test.ts\` following the \`@scripts/\` import rules defined in \`AGENTS.md\`.
-7. Commit the files: \`git add . && git commit -m "Add report for PR #${PR}: <slug>" && git push -u origin report/pr-${PR}-<slug>\`
-8. Open a Pull Request using \`gh pr create --title "[${CURRENT_REPO}#${PR}] Report: <human-readable title>" --body "Security audit finding for ${CURRENT_REPO} PR #${PR} (https://github.com/${CURRENT_REPO}/pull/${PR}). Branch: ${HEAD_REF_NAME}." --label "severity:<severity>" --label "target:<project>" --label "<NUT-XX>"\`. Make sure to add specific labels for the severity (e.g., \`severity:critical\`, \`severity:high\`), the affected project (e.g., \`target:nutshell\`), and any affected NUTs (e.g., \`NUT-04\`). IMPORTANT: You MUST explicitly link the reviewed pull request (https://github.com/${CURRENT_REPO}/pull/${PR}) in the PR description body.
+3. Check if there's already an existing PR for this target PR: \`gh pr list --search "[${CURRENT_REPO}#${PR}] in:title" --state open --json number,headRefName\`
+4. If an existing PR is found, checkout its branch (e.g., \`gh pr checkout <PR_NUMBER>\`). Otherwise, checkout a new branch: \`git checkout -b report/pr-${PR}-<slug>\` (where <slug> is a kebab-case identifier for the finding).
+5. Create the directory structure: `<project>/<date>/<slug>/` (where <project> is the repo name without the owner, e.g., `repo1` for `myorg/repo1`, and <date> is today's date in `YYYY-MM-DD`).
+6. Write your report to \`<project>/<date>/<slug>/pr-${PR}-report.md\` strictly following the YAML frontmatter and format specified in the \`<report_template>\` below.
+7. (Optional but recommended) Add your exploit to \`__tests__/<slug>/test.ts\` following the \`@scripts/\` import rules defined in \`AGENTS.md\`.
+8. Commit the files: \`git add . && git commit -m "Add report for PR #${PR}: <slug>"\`
+9. Push the changes: If you are on an existing branch, just \`git push\`. If you created a new branch, \`git push -u origin report/pr-${PR}-<slug>\`.
+10. If you created a new branch, open a Pull Request using \`gh pr create --title "[${CURRENT_REPO}#${PR}] Report: <human-readable title>" --body "Security audit finding for ${CURRENT_REPO} PR #${PR} (https://github.com/${CURRENT_REPO}/pull/${PR}). Branch: ${HEAD_REF_NAME}." --label "severity:<severity>" --label "target:<project>" --label "<NUT-XX>"\`. Make sure to add specific labels for the severity (e.g., \`severity:critical\`, \`severity:high\`), the affected project (e.g., \`target:nutshell\`), and any affected NUTs (e.g., \`NUT-04\`). IMPORTANT: You MUST explicitly link the reviewed pull request (https://github.com/${CURRENT_REPO}/pull/${PR}) in the PR description body. If you pushed to an existing branch, skip this step.
 </phases>
 
 <methodology>

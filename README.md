@@ -51,6 +51,12 @@ Bouncer is configured using environment variables. Create a `.env` file in the p
    docker compose up -d
    ```
 
+### Reviewing a Specific PR Manually
+You can run an isolated review on a specific PR without waiting for or affecting the continuous background polling loop. Use `docker compose exec` to execute the `review_pr.sh` script inside the running container:
+```bash
+docker compose exec bouncer /app/review_pr.sh myorg/myrepo 42
+```
+
 ## Logs and Output
 
 - **Logs:** View the process using \`docker logs -f bouncer\`.

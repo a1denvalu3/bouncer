@@ -32,7 +32,8 @@ WORKDIR /app
 COPY prompt_template.txt /app/prompt_template.txt
 COPY opencode_runner.sh /app/opencode_runner.sh
 COPY review.sh /app/review.sh
-RUN chmod +x /app/review.sh /app/opencode_runner.sh
+COPY review_pr.sh /app/review_pr.sh
+RUN chmod +x /app/review.sh /app/review_pr.sh /app/opencode_runner.sh
 
 # Copy an entrypoint to set up the dynamic cron schedule
 COPY entrypoint.sh /app/entrypoint.sh

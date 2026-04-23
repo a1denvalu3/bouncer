@@ -133,7 +133,7 @@ for CURRENT_REPO in $(echo "$REPOS" | tr ',' ' ' | tr '\n' ' '); do
             cp /app/opencode_runner.sh "$PR_WORKSPACE/.opencode_runner.sh"
 
             # Generate a valid, unique machine name (alphanumeric and dashes only)
-            MACHINE_NAME="pr-${PR}-$(head -c 4 /dev/urandom | xxd -p)"
+            MACHINE_NAME="pr-${PR}-$(tr -dc 'a-f0-9' < /dev/urandom | head -c 8)"
 
             # Run the bot in its own ephemeral nspawn container using overlayfs
             if ! timeout -k 5m "$REVIEW_TIMEOUT" systemd-nspawn --quiet --keep-unit --register=no \

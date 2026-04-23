@@ -14,7 +14,8 @@ RUN apt-get update && apt-get install -y \
     bridge-utils \
     iptables \
     dnsmasq \
-    isc-dhcp-client
+    isc-dhcp-client \
+    iproute2
 
     
 

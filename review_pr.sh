@@ -107,8 +107,13 @@ export CURRENT_REPO PR_REPORT PR_METRICS REPORT_REPO PR HEAD_REF_NAME PR_WORKSPA
 envsubst < /app/prompt_template.txt > "$PR_WORKSPACE/.opencode_prompt"
 cp /app/opencode_runner.sh "$PR_WORKSPACE/.opencode_runner.sh"
 
-# Run the bot in its own ephemeral nspawn container
-if ! timeout -k 5m "$REVIEW_TIMEOUT" systemd-nspawn --ephemeral --quiet --keep-unit --register=no \
+# Generate a valid, unique machine name (alphanumeric and dashes only)
+MACHINE_NAME="pr-${PR}-$(head -c 4 /dev/urandom | xxd -p)"
+
+# Run the bot in its own ephemeral nspawn container using overlayfs
+if ! timeout -k 5m "$REVIEW_TIMEOUT" systemd-nspawn --quiet --keep-unit --register=no \
+    --machine="$MACHINE_NAME" \
+    --volatile=overlay \
     -D /nspawn-root \
     --network-bridge=br-nspawn \
     --bind="$PR_WORKSPACE" \

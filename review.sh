@@ -123,9 +123,10 @@ for CURRENT_REPO in $(echo "$REPOS" | tr ',' ' ' | tr '\n' ' '); do
             echo "Running opencode analysis on PR #$PR for $CURRENT_REPO (Timeout: $REVIEW_TIMEOUT)..."
             
             PR_REPORT="/out/report_${SAFE_REPO_NAME}_${PR}.txt"
+            PR_METRICS="/out/metrics_${SAFE_REPO_NAME}_${PR}.json"
             
             # Export variables used in the prompt template
-            export CURRENT_REPO PR_REPORT REPORT_REPO PR HEAD_REF_NAME PR_WORKSPACE
+            export CURRENT_REPO PR_REPORT PR_METRICS REPORT_REPO PR HEAD_REF_NAME PR_WORKSPACE
 
             # Prepare runner for systemd-nspawn
             envsubst < /app/prompt_template.txt > "$PR_WORKSPACE/.opencode_prompt"
@@ -140,6 +141,7 @@ for CURRENT_REPO in $(echo "$REPOS" | tr ',' ' ' | tr '\n' ' '); do
                 -E OPENROUTER_API_KEY="$OPENROUTER_API_KEY" \
                 -E REPORT_REPO="$REPORT_REPO" \
                 -E OPENCODE_MODEL="$OPENCODE_MODEL" \
+                -E PR_METRICS="$PR_METRICS" \
                 /bin/bash -c "cd $PR_WORKSPACE && ./.opencode_runner.sh"; then
                 
                 EXIT_CODE=$?

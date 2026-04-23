@@ -135,6 +135,7 @@ for CURRENT_REPO in $(echo "$REPOS" | tr ',' ' ' | tr '\n' ' '); do
             # Run the bot in its own ephemeral nspawn container
             if ! timeout -k 5m "$REVIEW_TIMEOUT" systemd-nspawn --ephemeral --quiet --keep-unit --register=no \
                 -D /nspawn-root \
+                --network-bridge=br-nspawn \
                 --bind="$PR_WORKSPACE" \
                 --bind=/out \
                 -E GITHUB_TOKEN="$GITHUB_TOKEN" \

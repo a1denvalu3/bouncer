@@ -10,7 +10,12 @@ RUN apt-get update && apt-get install -y \
     rsync \
     gettext-base \
     sudo \
-    default-jdk
+    default-jdk \
+    bridge-utils \
+    iptables \
+    dnsmasq \
+    isc-dhcp-client
+
     
 
 # Install GitHub CLI (gh)

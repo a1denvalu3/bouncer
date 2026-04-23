@@ -1,4 +1,8 @@
 #!/bin/bash
+
+# Obtain IP address for the container's isolated network interface
+dhclient host0 >/dev/null 2>&1
+
 gh auth setup-git
 export OPENCODE_AUTO_CONFIRM=true
 export OPENCODE_PERMISSION='{"external_directory": {"*": "allow"}}'

@@ -9,6 +9,17 @@ if ! mountpoint -q /run; then
     mount -t tmpfs tmpfs /run
 fi
 
+# Set up isolated network bridge for nspawn containers
+if ! ip link show br-nspawn >/dev/null 2>&1; then
+    ip link add name br-nspawn type bridge
+    ip addr add 10.200.0.1/16 dev br-nspawn
+    ip link set br-nspawn up
+    iptables -t nat -A POSTROUTING -s 10.200.0.0/16 -j MASQUERADE
+    echo 1 > /proc/sys/net/ipv4/ip_forward
+    # Start dnsmasq to provide DHCP on the bridge
+    dnsmasq --interface=br-nspawn --bind-interfaces --dhcp-range=10.200.0.2,10.200.255.254,255.255.0.0,12h
+fi
+
 # Default sleep duration to 60 seconds if not provided
 SLEEP_DURATION=${SLEEP_DURATION:-60}
 

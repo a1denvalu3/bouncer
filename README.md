@@ -10,6 +10,7 @@ If a serious vulnerability is confirmed with a working Proof of Concept (PoC), B
 - **Secure Isolation (systemd-nspawn):** Safely isolates each PR review and its AI agent inside a nested, ephemeral `systemd-nspawn` container, allowing the AI to execute arbitrary test code and PoCs safely.
 - **State Tracking:** Remembers previously scanned commits to avoid redundant work.
 - **AI-Powered Analysis:** Leverages LLMs to perform hypothesis-driven code review and exploit construction.
+- **Metrics & Cost Tracking:** Automatically extracts LLM token usage, cache reads, and estimated costs for each PR review.
 - **Automated Reporting:** Submits actionable, formatted vulnerability reports directly to a private GitHub repo.
 
 ## Architecture
@@ -59,5 +60,5 @@ docker compose exec bouncer /app/review_pr.sh myorg/myrepo 42
 
 ## Logs and Output
 
-- **Logs:** View the process using \`docker logs -f bouncer\`.
-- **Local Reports:** Raw text reports and the PR state tracking file (`state.json`) are permanently saved to the local `./out/` directory, which is mapped as a volume.
+- **Logs:** View the process using \`docker logs -f bouncer\`. In addition to execution details, token usage and cost metrics will be printed to stdout after every run.
+- **Local Reports:** Raw text reports, JSON metrics files (`metrics_REPO_PR.json`), and the PR state tracking file (`state.json`) are permanently saved to the local `./out/` directory, which is mapped as a volume.

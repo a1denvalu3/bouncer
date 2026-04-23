@@ -18,7 +18,8 @@ If a serious vulnerability is confirmed with a working Proof of Concept (PoC), B
 Bouncer operates with a nested sandbox approach for maximum safety and modularity:
 1. **Outer Loop (Docker):** The main Bouncer application runs as a privileged Docker container. It polls GitHub for open PRs, maintains the `state.json` tracker, and checks out PR branches into isolated workspace directories.
 2. **Inner Sandbox (systemd-nspawn):** For each PR, Bouncer provisions a temporary, disposable filesystem snapshot (using `rsync`) and injects a customizable prompt (`prompt_template.txt`) alongside an execution script (`opencode_runner.sh`). It then launches an ephemeral `systemd-nspawn` container specifically for that single PR review. 
-3. **Cleanup:** Once the LLM finishes verifying its hypothesis or building a PoC, the ephemeral nspawn container is immediately destroyed. Only the final output report is persisted securely to the outer `/out` volume.
+3. **Network Isolation:** To prevent port collisions and ensure test fidelity across concurrently running instances (e.g., if multiple AI reviewers try to spin up a server on port `8080`), Bouncer establishes a dedicated virtual bridge (`br-nspawn`) in the host container. Every `systemd-nspawn` instance boots into an isolated network namespace attached to this bridge, obtaining a private `10.200.x.x` IP via `dnsmasq`'s DHCP server, while still utilizing NAT to maintain outgoing internet access.
+4. **Cleanup:** Once the LLM finishes verifying its hypothesis or building a PoC, the ephemeral nspawn container is immediately destroyed. Only the final output report is persisted securely to the outer `/out` volume.
 
 ## Configuration
 

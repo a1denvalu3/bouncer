@@ -21,6 +21,8 @@ if [ -z "$OPENCODE_MODEL" ]; then
     OPENCODE_MODEL="openrouter/anthropic/claude-3.7-sonnet"
 fi
 
+ALLOWED_AUTHOR_ASSOCIATIONS=${ALLOWED_AUTHOR_ASSOCIATIONS:-"COLLABORATOR,CONTRIBUTOR,MEMBER,OWNER"}
+
 mkdir -p /out
 cd /app
 
@@ -100,6 +102,13 @@ for CURRENT_REPO in $(echo "$REPOS" | tr ',' ' ' | tr '\n' ' '); do
             if [ "$HEAD_OID" == "$LAST_OID" ]; then
                 echo "----------------------------------------"
                 echo "Skipping PR #$PR for $CURRENT_REPO - No new commits since last review (Hash: $HEAD_OID)."
+                exit 0
+            fi
+
+            AUTHOR_ASSOCIATION=$(gh api "repos/${CURRENT_REPO}/pulls/${PR}" --jq '.author_association' 2>/dev/null)
+            if ! echo "$ALLOWED_AUTHOR_ASSOCIATIONS" | tr ',' '\n' | grep -ixq "$AUTHOR_ASSOCIATION"; then
+                echo "----------------------------------------"
+                echo "Skipping PR #$PR for $CURRENT_REPO - Author association ($AUTHOR_ASSOCIATION) not in ALLOWED_AUTHOR_ASSOCIATIONS."
                 exit 0
             fi
 

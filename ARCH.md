@@ -16,8 +16,8 @@ Bouncer operates using a nested container architecture. The main application run
 |                  Bouncer (Docker Container)                     |
 |                                                                 |
 |  +-----------------+     +----------------+     +------------+  |
-|  |     Poller      |     |     State      |     |    /out    |  |
-|  | (review.sh)     |---->|  (state.json)  |     |  (Volume)  |  |
+|  |     Poller      |     |  Encrypted DB  |     |    /out    |  |
+|  | (review.sh)     |---->|  (bouncer.db)  |     |  (Volume)  |  |
 |  +--------+--------+     +----------------+     +------^-----+  |
 |           |                                            |        |
 |           |                                            |        |
@@ -45,7 +45,7 @@ Bouncer operates using a nested container architecture. The main application run
 ### Components:
 1. **Poller & Dispatcher (`review.sh`)**: An outer loop running inside the host Docker container that continuously polls configured GitHub repositories for new, updated, or un-reviewed PRs. It checks against `ALLOWED_AUTHOR_ASSOCIATIONS` and handles basic rate-limiting/timeouts. Once a PR is selected, it fetches the PR branch, prepares the workspace context (including a custom `prompt_template.txt`), and spins up the inner sandbox in parallel.
 2. **Manual Dispatcher (`review_pr.sh`)**: A utility script allowing manual invocation to review a specific PR immediately, bypassing the polling loop while utilizing the identical sandbox infrastructure.
-3. **State & Metrics**: Tracks which commit hashes have already been reviewed to prevent redundant work. Saved to `state.json` inside the local `/out` volume.
+3. **Encrypted SQLCipher Database**: Replaces file-based state tracking. Stores the OIDs of already reviewed commits (`pr_reviews` table) to prevent redundant work, and securely ingests generated vulnerability reports and LLM execution metrics (`pr_reports` table). Automatically migrated and provisioned by `migrate_db.sh` using `DB_PASSPHRASE`. Data is persisted to the local `/out/bouncer.db` volume.
 4. **systemd-nspawn Sandbox**: An isolated Linux environment (namespace container) instantiated specifically for a single PR review. It is built using an ephemeral RAM disk overlay (`--volatile=overlay`) to ensure it boots instantly and prevents any filesystem state from leaking between reviews.
 5. **opencode-ai**: The AI agent executing inside the sandbox. It is given the code diff and instructed to find vulnerabilities, draft Proof of Concepts (PoCs), and test them against the isolated codebase.
 

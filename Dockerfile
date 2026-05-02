@@ -1,6 +1,6 @@
 FROM node:20-slim
 
-# Install necessary tools: git, github cli, cron, curl, systemd-container, rsync, gettext-base (for envsubst)
+# Install necessary tools: git, github cli, cron, jq, systemd-container, rsync, gettext-base, etc.
 RUN apt-get update && apt-get install -y \
     git \
     curl \
@@ -15,9 +15,8 @@ RUN apt-get update && apt-get install -y \
     iptables \
     dnsmasq \
     isc-dhcp-client \
-    iproute2
-
-    
+    iproute2 \
+    sqlcipher
 
 # Install GitHub CLI (gh)
 RUN curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg \
@@ -34,16 +33,10 @@ RUN mkdir /nspawn-root && rsync -a --exclude=/dev --exclude=/proc --exclude=/sys
 
 WORKDIR /app
 
-# Copy our review scripts
-COPY prompt_template.txt /app/prompt_template.txt
-COPY opencode_runner.sh /app/opencode_runner.sh
-COPY review.sh /app/review.sh
-COPY review_pr.sh /app/review_pr.sh
-RUN chmod +x /app/review.sh /app/review_pr.sh /app/opencode_runner.sh
-
-# Copy an entrypoint to set up the dynamic cron schedule
-COPY entrypoint.sh /app/entrypoint.sh
-RUN chmod +x /app/entrypoint.sh
+# Copy our application scripts and templates
+COPY scripts /app/scripts
+COPY templates /app/templates
+RUN chmod +x /app/scripts/*.sh
 
 # Start cron in the foreground via entrypoint
-CMD ["/app/entrypoint.sh"]
+CMD ["/app/scripts/entrypoint.sh"]

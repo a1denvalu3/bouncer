@@ -5,6 +5,8 @@ if [ -f /etc/environment ]; then
     . /etc/environment
 fi
 
+source /app/scripts/db_helper.sh
+
 CURRENT_REPO="$1"
 PR="$2"
 
@@ -104,8 +106,8 @@ PR_METRICS="/out/metrics_${SAFE_REPO_NAME}_${PR}.json"
 export CURRENT_REPO PR_REPORT PR_METRICS REPORT_REPO PR HEAD_REF_NAME PR_WORKSPACE
 
 # Prepare runner for systemd-nspawn
-envsubst < /app/prompt_template.txt > "$PR_WORKSPACE/.opencode_prompt"
-cp /app/opencode_runner.sh "$PR_WORKSPACE/.opencode_runner.sh"
+envsubst < /app/templates/prompt_template.txt > "$PR_WORKSPACE/.opencode_prompt"
+cp /app/scripts/opencode_runner.sh "$PR_WORKSPACE/.opencode_runner.sh"
 
 # Generate a valid, unique machine name (alphanumeric and dashes only)
 MACHINE_NAME="pr-${PR}-$(tr -dc 'a-f0-9' < /dev/urandom | head -c 8)"
@@ -133,28 +135,19 @@ if ! timeout -k 5m "$REVIEW_TIMEOUT" systemd-nspawn --quiet --keep-unit --regist
     fi
 fi
 
-# Handle the permanent storage requirement safely
+# Ingest report and metrics securely into the encrypted SQL database
 if [ -f "$PR_REPORT" ]; then
-    TIMESTAMP=$(date +"%Y%m%d_%H%M%S")
-    REPORT_DIR="/out/${SAFE_REPO_NAME}/${PR}"
-    mkdir -p "$REPORT_DIR"
-    FINAL_REPORT_PATH="${REPORT_DIR}/${TIMESTAMP}.txt"
+    execute_sql_insert_file "$CURRENT_REPO" "$PR" "$HEAD_OID" "$PR_REPORT" "$PR_METRICS"
+    echo "✅ Report and metrics for PR #$PR securely saved to encrypted database."
     
-    mv "$PR_REPORT" "$FINAL_REPORT_PATH"
-    echo "✅ Report for PR #$PR saved to: $FINAL_REPORT_PATH"
+    # Cleanup the flat files from the volume after successful database ingestion
+    rm -f "$PR_REPORT" "$PR_METRICS"
 else
     echo "⚠️ No report was generated for PR #$PR by opencode."
 fi
 
-# Update the state file with the new commit hash safely using a lock
-STATE_FILE="/out/state.json"
-if [ ! -f "$STATE_FILE" ]; then
-    echo "{}" > "$STATE_FILE"
-fi
-(
-    flock -x 9
-    jq ".[\"${CURRENT_REPO}_${PR}\"] = \"${HEAD_OID}\"" "$STATE_FILE" > "${STATE_FILE}.tmp" && mv "${STATE_FILE}.tmp" "$STATE_FILE"
-) 9>"${STATE_FILE}.lock"
+# Update the PR state in the database using the unified helper
+execute_sql "INSERT OR REPLACE INTO pr_reviews (repo, pr_number, head_oid) VALUES ('${CURRENT_REPO}', ${PR}, '${HEAD_OID}');"
 
 # Cleanup
 cd /app

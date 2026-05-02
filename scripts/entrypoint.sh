@@ -20,13 +20,16 @@ if ! ip link show br-nspawn >/dev/null 2>&1; then
     dnsmasq --interface=br-nspawn --bind-interfaces --dhcp-range=10.200.0.2,10.200.255.254,255.255.0.0,12h
 fi
 
+# Run database migrations before starting the poller
+/app/scripts/migrate_db.sh
+
 # Default sleep duration to 60 seconds if not provided
 SLEEP_DURATION=${SLEEP_DURATION:-60}
 
 echo "Starting PR reviewer in a loop with a ${SLEEP_DURATION}s sleep interval..."
 
 while true; do
-    /app/review.sh 2>&1
+    /app/scripts/review.sh 2>&1
     
     echo "Sleeping for ${SLEEP_DURATION} seconds before next run..."
     sleep "${SLEEP_DURATION}"

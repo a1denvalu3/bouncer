@@ -20,13 +20,11 @@ Bouncer operates using a nested container architecture. The main application run
 |  | (review.sh)     |---->|  (state.json)  |     |  (Volume)  |  |
 |  +--------+--------+     +----------------+     +------^-----+  |
 |           |                                            |        |
-|           v                                            |        |
-|  +--------+--------+                                   |        |
-|  |  PR Dispatcher  |-----------------------------------+        |
-|  | (review_pr.sh)  |                                            |
-|  +--------+--------+                                            |
-|           |                                                     |
-|           v (Spawns Ephemeral Sandbox)                          |
+|           |                                            |        |
+|           |                                            |        |
+|           |                                            |        |
+|           |                                            |        |
+|           v (Spawns Ephemeral Sandbox)                 |        |
 |  +-----------------------------------------------------------+  |
 |  |                 systemd-nspawn Sandbox                    |  |
 |  |                 (--volatile=overlay)                      |  |
@@ -45,9 +43,9 @@ Bouncer operates using a nested container architecture. The main application run
 ```
 
 ### Components:
-1. **Poller (`review.sh`)**: An outer loop running inside the host Docker container that continuously polls configured GitHub repositories for new, updated, or un-reviewed PRs. It checks against `ALLOWED_AUTHOR_ASSOCIATIONS` and handles basic rate-limiting/timeouts.
-2. **State & Metrics**: Tracks which commit hashes have already been reviewed to prevent redundant work. Saved to `state.json` inside the local `/out` volume.
-3. **PR Dispatcher (`review_pr.sh`)**: Once a PR is selected, this script fetches the PR branch, prepares the workspace context (including a custom `prompt_template.txt`), and spins up the inner sandbox.
+1. **Poller & Dispatcher (`review.sh`)**: An outer loop running inside the host Docker container that continuously polls configured GitHub repositories for new, updated, or un-reviewed PRs. It checks against `ALLOWED_AUTHOR_ASSOCIATIONS` and handles basic rate-limiting/timeouts. Once a PR is selected, it fetches the PR branch, prepares the workspace context (including a custom `prompt_template.txt`), and spins up the inner sandbox in parallel.
+2. **Manual Dispatcher (`review_pr.sh`)**: A utility script allowing manual invocation to review a specific PR immediately, bypassing the polling loop while utilizing the identical sandbox infrastructure.
+3. **State & Metrics**: Tracks which commit hashes have already been reviewed to prevent redundant work. Saved to `state.json` inside the local `/out` volume.
 4. **systemd-nspawn Sandbox**: An isolated Linux environment (namespace container) instantiated specifically for a single PR review. It is built using an ephemeral RAM disk overlay (`--volatile=overlay`) to ensure it boots instantly and prevents any filesystem state from leaking between reviews.
 5. **opencode-ai**: The AI agent executing inside the sandbox. It is given the code diff and instructed to find vulnerabilities, draft Proof of Concepts (PoCs), and test them against the isolated codebase.
 

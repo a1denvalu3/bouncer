@@ -12,6 +12,19 @@ fi
 
 PASSPHRASE="$DB_PASSPHRASE"
 
+verify_db_passphrase() {
+    # If the database file exists and is not empty, verify the passphrase is correct
+    if [ -s "$DB_PATH" ]; then
+        if ! sqlcipher -batch -cmd "PRAGMA key = '${PASSPHRASE}';" "$DB_PATH" "SELECT count(*) FROM sqlite_master;" >/dev/null 2>&1; then
+            echo "ERROR: DB_PASSPHRASE is incorrect or the database at $DB_PATH is corrupted. Failed to decrypt."
+            exit 1
+        fi
+    fi
+}
+
+# Verify passphrase on script load
+verify_db_passphrase
+
 execute_sql() {
     local query="$1"
     # Note: Use -batch to avoid interactive prompts

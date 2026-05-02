@@ -152,7 +152,7 @@ for CURRENT_REPO in $(echo "$REPOS" | tr ',' ' ' | tr '\n' ' '); do
                 -E REPORT_REPO="$REPORT_REPO" \
                 -E OPENCODE_MODEL="$OPENCODE_MODEL" \
                 -E PR_METRICS="$PR_METRICS" \
-                /bin/bash -c "cd $PR_WORKSPACE && ./.opencode_runner.sh"; then
+                /bin/bash -c "cd $PR_WORKSPACE && ./.opencode_runner.sh" > "/out/nspawn_${SAFE_REPO_NAME}_${PR}.log" 2>&1; then
                 
                 EXIT_CODE=$?
                 if [ $EXIT_CODE -eq 124 ] || [ $EXIT_CODE -eq 137 ]; then
@@ -168,7 +168,7 @@ for CURRENT_REPO in $(echo "$REPOS" | tr ',' ' ' | tr '\n' ' '); do
                 echo "✅ Report and metrics for PR #$PR securely saved to encrypted database."
                 
                 # Cleanup the flat files from the volume after successful database ingestion
-                rm -f "$PR_REPORT" "$PR_METRICS"
+                rm -f "$PR_REPORT" "$PR_METRICS" "/out/nspawn_${SAFE_REPO_NAME}_${PR}.log"
             else
                 echo "⚠️ No report was generated for PR #$PR by opencode."
             fi

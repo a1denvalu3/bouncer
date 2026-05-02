@@ -4,7 +4,13 @@
 # Utility functions to interact with the encrypted SQLCipher database
 
 DB_PATH="/out/bouncer.db"
-PASSPHRASE="${DB_PASSPHRASE:-change_this_default_passphrase_in_production}"
+
+if [ -z "$DB_PASSPHRASE" ]; then
+    echo "ERROR: DB_PASSPHRASE environment variable is not set. An encryption key is required for SQLCipher."
+    exit 1
+fi
+
+PASSPHRASE="$DB_PASSPHRASE"
 
 execute_sql() {
     local query="$1"

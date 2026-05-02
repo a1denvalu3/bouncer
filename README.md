@@ -44,7 +44,7 @@ Bouncer is configured using environment variables. Create a `.env` file in the p
 - `GITHUB_PAT` (or `GITHUB_TOKEN`): A GitHub Personal Access Token. Needs read access to the target `REPOS` and read/write access to the `REPORT_REPO`.
 - `OPENROUTER_API_KEY`: Your OpenRouter API key for LLM access.
 - `REPOS`: A comma-separated list of target repositories to monitor (e.g., `org/repo1,org/repo2`).
-- `DB_PASSPHRASE`: A strong passphrase to encrypt the local SQLite (SQLCipher) database containing PR state tracking and generated vulnerability reports.
+- `DB_PASSPHRASE`: A strong passphrase to encrypt the local SQLite (SQLCipher) database containing PR state tracking and generated vulnerability reports. This is strictly required and does not have a default.
 
 ### Optional Variables
 - `REPORT_REPO`: The private repository where security findings will be submitted as PRs (default: `myorg/security-audits`).

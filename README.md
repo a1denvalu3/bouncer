@@ -21,6 +21,21 @@ Bouncer operates with a nested sandbox approach for maximum safety and modularit
 3. **Network Isolation:** To prevent port collisions and ensure test fidelity across concurrently running instances (e.g., if multiple AI reviewers try to spin up a server on port `8080`), Bouncer establishes a dedicated virtual bridge (`br-nspawn`) in the host container. Every `systemd-nspawn` instance boots into an isolated network namespace attached to this bridge, obtaining a private `10.200.x.x` IP via `dnsmasq`'s DHCP server, while still utilizing NAT to maintain outgoing internet access.
 4. **Cleanup:** Once the LLM finishes verifying its hypothesis or building a PoC, the ephemeral nspawn container is immediately destroyed. Only the final output report is persisted securely to the outer `/out` volume.
 
+## Nested Container Network Configuration
+
+To provide the AI with a realistic test environment while maintaining safety and allowing concurrency, Bouncer explicitly configures an isolated networking stack for all spawned PR review sandboxes. 
+
+The configuration involves several foundational steps executed by Bouncer's `entrypoint.sh` when the main Docker container starts:
+
+1. **Virtual Bridge Creation (`br-nspawn`):** Bouncer creates a virtual network bridge interface named `br-nspawn` inside the main Docker container. This acts as a virtual switch to connect the nested sandboxes.
+2. **Subnet Allocation:** The bridge is assigned the gateway IP address `10.200.0.1` and manages the `10.200.0.0/16` local subnet.
+3. **NAT and Packet Forwarding:** To allow outbound internet access from inside the sandboxes (e.g., so the AI can download code dependencies via `npm`, `pip`, or `cargo`), Bouncer enables IPv4 packet forwarding in the kernel (`/proc/sys/net/ipv4/ip_forward`) and adds an `iptables` POSTROUTING masquerade rule for the `10.200.0.0/16` subnet. This translates the internal nested IPs to the main Docker container's IP when reaching out to the internet.
+4. **DHCP Server (`dnsmasq`):** A lightweight `dnsmasq` daemon is launched, bound specifically to the `br-nspawn` interface. It provides dynamic DHCP leases in the range `10.200.0.2` to `10.200.255.254` to any container attaching to the bridge.
+5. **Namespace Attachment:** When a new `systemd-nspawn` sandbox is launched to review a PR, it is initiated with the `--network-bridge=br-nspawn` flag. This creates a virtual ethernet (`veth`) pair, connecting the new container's isolated network namespace directly to the `br-nspawn` bridge, allowing it to request its own private IP address via DHCP.
+
+**Why is this important?** 
+Because each `systemd-nspawn` sandbox boots into its own fully isolated network namespace with its own IP and loopback interface (`localhost`), concurrent reviews never experience port conflicts. Multiple distinct PR review agents can safely spin up services on identical ports (like `0.0.0.0:8080`) at the exact same time without interfering with the host or with each other.
+
 ## Configuration
 
 Bouncer is configured using environment variables. Create a `.env` file in the project root or configure them directly in `docker-compose.yml`.

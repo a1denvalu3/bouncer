@@ -16,10 +16,10 @@ If a serious vulnerability is confirmed with a working Proof of Concept (PoC), B
 ## Architecture
 
 Bouncer operates with a nested sandbox approach for maximum safety and modularity:
-1. **Outer Loop (Docker):** The main Bouncer application runs as a privileged Docker container. It polls GitHub for open PRs, maintains the `state.json` tracker, and checks out PR branches into isolated workspace directories.
-2. **Inner Sandbox (systemd-nspawn):** For each PR, Bouncer provisions a temporary, disposable filesystem snapshot (using `cp -a` from a cached base clone) and injects a customizable prompt (`prompt_template.txt`) alongside an execution script (`opencode_runner.sh`). It then launches an ephemeral `systemd-nspawn` container specifically for that single PR review. 
+1. **Outer Loop (Docker):** The main Bouncer application runs as a privileged Docker container. It polls GitHub for open PRs, maintains an encrypted database of reviewed hashes, and checks out PR branches into isolated workspace directories.
+2. **Inner Sandbox (systemd-nspawn):** For each PR, Bouncer provisions a temporary, disposable filesystem snapshot (using `cp -a` from a cached base clone) and injects a customizable prompt (`prompt_template.txt` from `templates/`) alongside an execution script (`opencode_runner.sh` from `scripts/`). It then launches an ephemeral `systemd-nspawn` container specifically for that single PR review. 
 3. **Network Isolation:** To prevent port collisions and ensure test fidelity across concurrently running instances (e.g., if multiple AI reviewers try to spin up a server on port `8080`), Bouncer establishes a dedicated virtual bridge (`br-nspawn`) in the host container. Every `systemd-nspawn` instance boots into an isolated network namespace attached to this bridge, obtaining a private `10.200.x.x` IP via `dnsmasq`'s DHCP server, while still utilizing NAT to maintain outgoing internet access.
-4. **Cleanup:** Once the LLM finishes verifying its hypothesis or building a PoC, the ephemeral nspawn container is immediately destroyed. Only the final output report is persisted securely to the outer `/out` volume.
+4. **Cleanup & Persistence:** Once the LLM finishes verifying its hypothesis or building a PoC, the ephemeral nspawn container is immediately destroyed. Generated vulnerability reports and cost metrics are securely ingested into an encrypted SQLCipher database residing in the `/out` volume.
 
 ## Nested Container Network Configuration
 
@@ -44,6 +44,7 @@ Bouncer is configured using environment variables. Create a `.env` file in the p
 - `GITHUB_PAT` (or `GITHUB_TOKEN`): A GitHub Personal Access Token. Needs read access to the target `REPOS` and read/write access to the `REPORT_REPO`.
 - `OPENROUTER_API_KEY`: Your OpenRouter API key for LLM access.
 - `REPOS`: A comma-separated list of target repositories to monitor (e.g., `org/repo1,org/repo2`).
+- `DB_PASSPHRASE`: A strong passphrase to encrypt the local SQLite (SQLCipher) database containing PR state tracking and generated vulnerability reports. This is strictly required and does not have a default.
 
 ### Optional Variables
 - `REPORT_REPO`: The private repository where security findings will be submitted as PRs (default: `myorg/security-audits`).
@@ -72,10 +73,10 @@ Bouncer is configured using environment variables. Create a `.env` file in the p
 ### Reviewing a Specific PR Manually
 You can run an isolated review on a specific PR without waiting for or affecting the continuous background polling loop. Use `docker compose exec` to execute the `review_pr.sh` script inside the running container:
 ```bash
-docker compose exec bouncer /app/review_pr.sh myorg/myrepo 42
+docker compose exec bouncer /app/scripts/review_pr.sh myorg/myrepo 42
 ```
 
 ## Logs and Output
 
-- **Logs:** View the process using \`docker logs -f bouncer\`. In addition to execution details, token usage and cost metrics will be printed to stdout after every run.
-- **Local Reports:** Raw text reports, JSON metrics files (`metrics_REPO_PR.json`), and the PR state tracking file (`state.json`) are permanently saved to the local `./out/` directory, which is mapped as a volume.
+- **Logs:** View the process using `docker logs -f bouncer`. In addition to execution details, token usage and cost metrics will be printed to stdout after every run.
+- **Persistence Database:** State tracking, raw LLM metrics, and the full text of any generated vulnerability reports are stored in an AES-256 encrypted SQLCipher database permanently saved to the local `./out/bouncer.db` volume. Use the provided `DB_PASSPHRASE` to decrypt and access this file manually if required.

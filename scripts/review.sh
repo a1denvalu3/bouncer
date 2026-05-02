@@ -2,6 +2,7 @@
 
 # Source env vars for cron
 . /etc/environment
+source /app/scripts/db_helper.sh
 
 echo "=================================================="
 echo "Starting PR review job at $(date)"
@@ -25,12 +26,6 @@ ALLOWED_AUTHOR_ASSOCIATIONS=${ALLOWED_AUTHOR_ASSOCIATIONS:-"COLLABORATOR,CONTRIB
 
 mkdir -p /out
 cd /app
-
-# Initialize state file for tracking reviewed commits
-STATE_FILE="/out/state.json"
-if [ ! -f "$STATE_FILE" ]; then
-    echo "{}" > "$STATE_FILE"
-fi
 
 # Setup GitHub CLI auth
 gh auth setup-git
@@ -97,7 +92,7 @@ for CURRENT_REPO in $(echo "$REPOS" | tr ',' ' ' | tr '\n' ' '); do
                 exit 0
             fi
             
-            LAST_OID=$(jq -r ".[\"${CURRENT_REPO}_${PR}\"] // empty" "$STATE_FILE")
+            LAST_OID=$(execute_sql "SELECT head_oid FROM pr_reviews WHERE repo='${CURRENT_REPO}' AND pr_number=${PR};")
             
             if [ "$HEAD_OID" == "$LAST_OID" ]; then
                 echo "----------------------------------------"
@@ -138,8 +133,8 @@ for CURRENT_REPO in $(echo "$REPOS" | tr ',' ' ' | tr '\n' ' '); do
             export CURRENT_REPO PR_REPORT PR_METRICS REPORT_REPO PR HEAD_REF_NAME PR_WORKSPACE
 
             # Prepare runner for systemd-nspawn
-            envsubst < /app/prompt_template.txt > "$PR_WORKSPACE/.opencode_prompt"
-            cp /app/opencode_runner.sh "$PR_WORKSPACE/.opencode_runner.sh"
+            envsubst < /app/templates/prompt_template.txt > "$PR_WORKSPACE/.opencode_prompt"
+            cp /app/scripts/opencode_runner.sh "$PR_WORKSPACE/.opencode_runner.sh"
 
             # Generate a valid, unique machine name (alphanumeric and dashes only)
             MACHINE_NAME="pr-${PR}-$(tr -dc 'a-f0-9' < /dev/urandom | head -c 8)"
@@ -167,24 +162,19 @@ for CURRENT_REPO in $(echo "$REPOS" | tr ',' ' ' | tr '\n' ' '); do
                 fi
             fi
 
-            # Handle the permanent storage requirement safely
+            # Ingest report and metrics securely into the encrypted SQL database
             if [ -f "$PR_REPORT" ]; then
-                TIMESTAMP=$(date +"%Y%m%d_%H%M%S")
-                REPORT_DIR="/out/${SAFE_REPO_NAME}/${PR}"
-                mkdir -p "$REPORT_DIR"
-                FINAL_REPORT_PATH="${REPORT_DIR}/${TIMESTAMP}.txt"
+                execute_sql_insert_file "$CURRENT_REPO" "$PR" "$HEAD_OID" "$PR_REPORT" "$PR_METRICS"
+                echo "✅ Report and metrics for PR #$PR securely saved to encrypted database."
                 
-                mv "$PR_REPORT" "$FINAL_REPORT_PATH"
-                echo "✅ Report for PR #$PR saved to: $FINAL_REPORT_PATH"
+                # Cleanup the flat files from the volume after successful database ingestion
+                rm -f "$PR_REPORT" "$PR_METRICS"
             else
                 echo "⚠️ No report was generated for PR #$PR by opencode."
             fi
             
-            # Update the state file with the new commit hash safely using a lock
-            (
-                flock -x 9
-                jq ".[\"${CURRENT_REPO}_${PR}\"] = \"${HEAD_OID}\"" "$STATE_FILE" > "${STATE_FILE}.tmp" && mv "${STATE_FILE}.tmp" "$STATE_FILE"
-            ) 9>"${STATE_FILE}.lock"
+            # Update the PR state in the database using the unified helper
+            execute_sql "INSERT OR REPLACE INTO pr_reviews (repo, pr_number, head_oid) VALUES ('${CURRENT_REPO}', ${PR}, '${HEAD_OID}');"
 
             # Cleanup
             cd /app

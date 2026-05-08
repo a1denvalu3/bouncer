@@ -16,8 +16,13 @@ if [ -z "$CURRENT_REPO" ] || [ -z "$PR" ]; then
     exit 1
 fi
 
-if [ -z "$GITHUB_TOKEN" ] || [ -z "$OPENROUTER_API_KEY" ] || [ -z "$REPORT_REPO" ]; then
-    echo "ERROR: GITHUB_TOKEN, OPENROUTER_API_KEY, and REPORT_REPO must be set."
+if [ -z "$GITHUB_TOKEN" ] || [ -z "$REPORT_REPO" ]; then
+    echo "ERROR: GITHUB_TOKEN and REPORT_REPO must be set."
+    exit 1
+fi
+
+if [ -z "$OPENROUTER_API_KEY" ] && [ -z "$OPENAI_API_KEY" ] && [ -z "$ANTHROPIC_API_KEY" ] && [ -z "$GOOGLE_API_KEY" ]; then
+    echo "ERROR: At least one API key (OPENROUTER_API_KEY, OPENAI_API_KEY, ANTHROPIC_API_KEY, or GOOGLE_API_KEY) must be set."
     exit 1
 fi
 
@@ -122,6 +127,9 @@ if ! timeout -k 5m "$REVIEW_TIMEOUT" systemd-nspawn --quiet --keep-unit --regist
     --bind=/out \
     -E GITHUB_TOKEN="$GITHUB_TOKEN" \
     -E OPENROUTER_API_KEY="$OPENROUTER_API_KEY" \
+    -E OPENAI_API_KEY="$OPENAI_API_KEY" \
+    -E ANTHROPIC_API_KEY="$ANTHROPIC_API_KEY" \
+    -E GOOGLE_API_KEY="$GOOGLE_API_KEY" \
     -E REPORT_REPO="$REPORT_REPO" \
     -E OPENCODE_MODEL="$OPENCODE_MODEL" \
     -E PR_METRICS="$PR_METRICS" \

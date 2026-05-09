@@ -42,7 +42,11 @@ Bouncer is configured using environment variables. Create a `.env` file in the p
 
 ### Required Variables
 - `GITHUB_PAT` (or `GITHUB_TOKEN`): A GitHub Personal Access Token. Needs read access to the target `REPOS` and read/write access to the `REPORT_REPO`.
-- `OPENROUTER_API_KEY`: Your OpenRouter API key for LLM access.
+- **At least one API key** for LLM access:
+  - `OPENROUTER_API_KEY`
+  - `OPENAI_API_KEY`
+  - `ANTHROPIC_API_KEY`
+  - `GOOGLE_API_KEY`
 - `REPOS`: A comma-separated list of target repositories to monitor (e.g., `org/repo1,org/repo2`).
 - `DB_PASSPHRASE`: A strong passphrase to encrypt the local SQLite (SQLCipher) database containing PR state tracking and generated vulnerability reports. This is strictly required and does not have a default.
 
@@ -60,10 +64,13 @@ Bouncer is configured using environment variables. Create a `.env` file in the p
 1. Clone this repository.
 2. Set your environment variables in a `.env` file at the root of the project:
    ```env
-   GITHUB_PAT=ghp_your_token_here
-   OPENROUTER_API_KEY=sk-or-v1-your_key_here
-   REPOS=myorg/myrepo1,myorg/myrepo2
-   REPORT_REPO=myorg/private-security-audits
+    GITHUB_PAT=ghp_your_token_here
+    # Provide at least one API key
+    OPENROUTER_API_KEY=sk-or-v1-your_key_here
+    # OPENAI_API_KEY=sk-...
+    REPOS=myorg/myrepo1,myorg/myrepo2
+    REPORT_REPO=myorg/private-security-audits
+
    ```
 3. Start the service using Docker Compose (*Note: The Docker container must run in `privileged` mode to support namespace allocation and nested `systemd-nspawn` containers*):
    ```bash

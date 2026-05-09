@@ -12,8 +12,13 @@ if [ -z "$REPOS" ] && [ -n "$REPO_NAME" ]; then
     REPOS="$REPO_NAME"
 fi
 
-if [ -z "$REPOS" ] || [ -z "$GITHUB_TOKEN" ] || [ -z "$OPENROUTER_API_KEY" ] || [ -z "$REPORT_REPO" ]; then
-    echo "ERROR: REPOS (or REPO_NAME), GITHUB_TOKEN, OPENROUTER_API_KEY, and REPORT_REPO must be set."
+if [ -z "$REPOS" ] || [ -z "$GITHUB_TOKEN" ] || [ -z "$REPORT_REPO" ]; then
+    echo "ERROR: REPOS (or REPO_NAME), GITHUB_TOKEN, and REPORT_REPO must be set."
+    exit 1
+fi
+
+if [ -z "$OPENROUTER_API_KEY" ] && [ -z "$OPENAI_API_KEY" ] && [ -z "$ANTHROPIC_API_KEY" ] && [ -z "$GOOGLE_API_KEY" ]; then
+    echo "ERROR: At least one API key (OPENROUTER_API_KEY, OPENAI_API_KEY, ANTHROPIC_API_KEY, or GOOGLE_API_KEY) must be set."
     exit 1
 fi
 
@@ -149,6 +154,9 @@ for CURRENT_REPO in $(echo "$REPOS" | tr ',' ' ' | tr '\n' ' '); do
                 --bind=/out \
                 -E GITHUB_TOKEN="$GITHUB_TOKEN" \
                 -E OPENROUTER_API_KEY="$OPENROUTER_API_KEY" \
+                -E OPENAI_API_KEY="$OPENAI_API_KEY" \
+                -E ANTHROPIC_API_KEY="$ANTHROPIC_API_KEY" \
+                -E GOOGLE_API_KEY="$GOOGLE_API_KEY" \
                 -E REPORT_REPO="$REPORT_REPO" \
                 -E OPENCODE_MODEL="$OPENCODE_MODEL" \
                 -E PR_METRICS="$PR_METRICS" \

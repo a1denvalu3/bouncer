@@ -29,6 +29,13 @@ fi
 
 ALLOWED_AUTHOR_ASSOCIATIONS=${ALLOWED_AUTHOR_ASSOCIATIONS:-"COLLABORATOR,CONTRIBUTOR,MEMBER,OWNER"}
 
+# Cap on concurrent PR review subshells. 0 (default) means unlimited.
+MAX_WORKER=${MAX_WORKER:-0}
+if ! [[ "$MAX_WORKER" =~ ^[0-9]+$ ]]; then
+    echo "ERROR: MAX_WORKER must be a non-negative integer (got '${MAX_WORKER}')."
+    exit 1
+fi
+
 mkdir -p /out
 cd /app
 
@@ -73,6 +80,12 @@ for CURRENT_REPO in $(echo "$REPOS" | tr ',' ' ' | tr '\n' ' '); do
 
     # Iterate over each PR using jq and run in parallel
     for row in $(echo "${PR_DATA}" | jq -r '.[] | @base64'); do
+        # Throttle when MAX_WORKER is set: block until a slot frees up.
+        if [ "$MAX_WORKER" -gt 0 ]; then
+            while [ "$(jobs -rp | wc -l)" -ge "$MAX_WORKER" ]; do
+                wait -n
+            done
+        fi
         (
             _jq() {
              echo ${row} | base64 --decode | jq -r ${1}
@@ -190,6 +203,10 @@ for CURRENT_REPO in $(echo "$REPOS" | tr ',' ' ' | tr '\n' ' '); do
         ) &
     done
 done
+
+if [ "$MAX_WORKER" -gt 0 ]; then
+    wait
+fi
 
 echo "Finished triggering PR review jobs at $(date)"
 echo "=================================================="

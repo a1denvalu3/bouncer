@@ -21,6 +21,8 @@ services:
       - REVIEW_TIMEOUT=${REVIEW_TIMEOUT:-30m}
       - SKIP_PRS=${SKIP_PRS:-}
       - ALLOWED_AUTHOR_ASSOCIATIONS=${ALLOWED_AUTHOR_ASSOCIATIONS:-COLLABORATOR,CONTRIBUTOR,MEMBER,OWNER}
+      # Cap on concurrent PR reviews per cycle (0 = unlimited)
+      - MAX_WORKER=${MAX_WORKER:-0}
       # Repository to open PRs to with findings
       - REPORT_REPO=${REPORT_REPO:-myorg/security-audits}
       # E.g., "octocat/Hello-World"

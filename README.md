@@ -5,6 +5,8 @@ Bouncer is an automated, continuous security review tool that monitors GitHub Pu
 
 If a serious vulnerability is confirmed with a working Proof of Concept (PoC), Bouncer automatically drafts a formatted security report and opens a pull request directly to your designated private security repository.
 
+<div align="center"><img src="assets/bouncer-continous.png" alt="Bouncer Workflow" width="800"/></div>
+
 ## Features
 - **Continuous Monitoring:** Runs in a continuous loop to check for new or updated PRs.
 - **Secure Isolation (systemd-nspawn):** Safely isolates each PR review and its AI agent inside a nested, ephemeral `systemd-nspawn` container, allowing the AI to execute arbitrary test code and PoCs safely.

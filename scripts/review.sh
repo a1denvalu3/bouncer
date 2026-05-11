@@ -204,9 +204,5 @@ for CURRENT_REPO in $(echo "$REPOS" | tr ',' ' ' | tr '\n' ' '); do
     done
 done
 
-if [ "$MAX_WORKER" -gt 0 ]; then
-    wait
-fi
-
 echo "Finished triggering PR review jobs at $(date)"
 echo "=================================================="

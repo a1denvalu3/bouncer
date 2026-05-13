@@ -31,3 +31,14 @@ services:
       # Maps the local ./out folder to /out inside the container for permanent storage
       - ./out:/out
     restart: unless-stopped
+  dashboard:
+    build: .
+    command: python3 dashboard/app.py
+    volumes:
+      - ./out:/out
+      - .:/app
+    ports:
+      - "5001:5001"
+    environment:
+      - DB_PASSPHRASE=${DB_PASSPHRASE}
+

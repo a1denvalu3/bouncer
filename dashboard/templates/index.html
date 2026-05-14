@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Bouncer Reports Dashboard</title>
+    <style>
+        body { font-family: sans-serif; padding: 20px; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        th, td { border: 1px solid #ccc; padding: 10px; text-align: left; }
+        th { background-color: #f4f4f4; }
+    </style>
+</head>
+<body>
+    <h1>Bouncer Reports</h1>
+    <table>
+        <thead>
+            <tr>
+                <th>Repo</th>
+                <th>PR</th>
+                <th>Metrics</th>
+                <th>Report</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for report in reports %}
+            <tr>
+                <td>{{ report.repo }}</td>
+                <td>{{ report.pr_number }}</td>
+                <td>
+                    <pre>{{ report.metrics | tojson(indent=2) }}</pre>
+                </td>
+                <td><pre>{{ report.report_text }}</pre></td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</body>
+</html>

@@ -16,7 +16,10 @@ RUN apt-get update && apt-get install -y \
     dnsmasq \
     isc-dhcp-client \
     iproute2 \
-    sqlcipher
+    sqlcipher \
+    python3 \
+    python3-pip \
+    && pip3 install flask --break-system-packages
 
 # Install GitHub CLI (gh)
 RUN curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg \

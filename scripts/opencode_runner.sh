@@ -14,7 +14,7 @@ envsubst < /app/templates/discovery/discovery_template.txt > .opencode_discovery
 opencode run -m "$OPENCODE_MODEL" "$(cat .opencode_discovery_prompt)"
 
 # 2. Run verifier only if discovery produced a non-empty report
-if [ -f "$PR_REPORT" ] && [ -s "$PR_REPORT" ]; then
+if [ -f "$PR_REPORT" ]; then
     echo "Running verification..."
     # Create verifier prompt
     envsubst < /app/templates/verifier/verifier_template.txt > .opencode_verifier_prompt

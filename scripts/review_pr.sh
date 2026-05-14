@@ -104,8 +104,8 @@ fi
 REVIEW_TIMEOUT=${REVIEW_TIMEOUT:-"30m"}
 echo "Running opencode analysis on PR #$PR for $CURRENT_REPO (Timeout: $REVIEW_TIMEOUT)..."
 
-PR_REPORT="/out/report_${SAFE_REPO_NAME}_${PR}.txt"
-PR_METRICS="/out/metrics_${SAFE_REPO_NAME}_${PR}.json"
+PR_REPORT="/tmp/report_${SAFE_REPO_NAME}_${PR}.txt"
+PR_METRICS="/tmp/metrics_${SAFE_REPO_NAME}_${PR}.json"
 
 # Export variables used in the prompt template
 export CURRENT_REPO PR_REPORT PR_METRICS REPORT_REPO PR HEAD_REF_NAME PR_WORKSPACE
@@ -124,7 +124,7 @@ if ! timeout -k 5m "$REVIEW_TIMEOUT" systemd-nspawn --quiet --keep-unit --regist
     -D /nspawn-root \
     --network-bridge=br-nspawn \
     --bind="$PR_WORKSPACE" \
-    --bind=/out \
+    --bind=/tmp \
     -E GITHUB_TOKEN="$GITHUB_TOKEN" \
     -E OPENROUTER_API_KEY="$OPENROUTER_API_KEY" \
     -E OPENAI_API_KEY="$OPENAI_API_KEY" \
@@ -132,6 +132,7 @@ if ! timeout -k 5m "$REVIEW_TIMEOUT" systemd-nspawn --quiet --keep-unit --regist
     -E GOOGLE_API_KEY="$GOOGLE_API_KEY" \
     -E REPORT_REPO="$REPORT_REPO" \
     -E OPENCODE_MODEL="$OPENCODE_MODEL" \
+    -E PR_REPORT="$PR_REPORT" \
     -E PR_METRICS="$PR_METRICS" \
     /bin/bash -c "cd $PR_WORKSPACE && ./.opencode_runner.sh" > "/out/nspawn_${SAFE_REPO_NAME}_${PR}.log" 2>&1; then
     

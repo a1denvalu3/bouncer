@@ -28,15 +28,15 @@ RUN curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | d
 # Install opencode via NPM
 RUN npm install -g opencode-ai
 
-# Copy the entire filesystem to /nspawn-root for the ephemeral nspawn containers
-RUN mkdir /nspawn-root && rsync -a --exclude=/dev --exclude=/proc --exclude=/sys --exclude=/tmp --exclude=/run --exclude=/mnt --exclude=/media --exclude=/lost+found --exclude=/nspawn-root / /nspawn-root/ && mkdir -p /nspawn-root/dev /nspawn-root/proc /nspawn-root/sys /nspawn-root/tmp /nspawn-root/run
-
-WORKDIR /app
-
 # Copy our application scripts and templates
 COPY scripts /app/scripts
 COPY templates /app/templates
 RUN chmod +x /app/scripts/*.sh
+
+# Copy the entire filesystem to /nspawn-root for the ephemeral nspawn containers
+RUN mkdir /nspawn-root && rsync -a --exclude=/dev --exclude=/proc --exclude=/sys --exclude=/tmp --exclude=/run --exclude=/mnt --exclude=/media --exclude=/lost+found --exclude=/nspawn-root / /nspawn-root/ && mkdir -p /nspawn-root/dev /nspawn-root/proc /nspawn-root/sys /nspawn-root/tmp /nspawn-root/run
+
+WORKDIR /app
 
 # Start cron in the foreground via entrypoint
 CMD ["/app/scripts/entrypoint.sh"]

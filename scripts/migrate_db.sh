@@ -29,6 +29,7 @@ CREATE TABLE IF NOT EXISTS pr_reports (
     metrics_json TEXT,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
+PRAGMA journal_mode=WAL;
 "
 
 # 2. Get current migration version

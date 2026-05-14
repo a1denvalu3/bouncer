@@ -144,8 +144,8 @@ for CURRENT_REPO in $(echo "$REPOS" | tr ',' ' ' | tr '\n' ' '); do
             REVIEW_TIMEOUT=${REVIEW_TIMEOUT:-"30m"}
             echo "Running opencode analysis on PR #$PR for $CURRENT_REPO (Timeout: $REVIEW_TIMEOUT)..."
             
-            PR_REPORT="/out/report_${SAFE_REPO_NAME}_${PR}.txt"
-            PR_METRICS="/out/metrics_${SAFE_REPO_NAME}_${PR}.json"
+            PR_REPORT="/tmp/report_${SAFE_REPO_NAME}-${PR}.txt"
+            PR_METRICS="/tmp/metrics_${SAFE_REPO_NAME}_${PR}.json"
             
             # Export variables used in the prompt template
             export CURRENT_REPO PR_REPORT PR_METRICS REPORT_REPO PR HEAD_REF_NAME PR_WORKSPACE
@@ -164,7 +164,7 @@ for CURRENT_REPO in $(echo "$REPOS" | tr ',' ' ' | tr '\n' ' '); do
                 -D /nspawn-root \
                 --network-bridge=br-nspawn \
                 --bind="$PR_WORKSPACE" \
-                --bind=/out \
+                --bind=/tmp \
                 -E GITHUB_TOKEN="$GITHUB_TOKEN" \
                 -E OPENROUTER_API_KEY="$OPENROUTER_API_KEY" \
                 -E OPENAI_API_KEY="$OPENAI_API_KEY" \
@@ -173,6 +173,7 @@ for CURRENT_REPO in $(echo "$REPOS" | tr ',' ' ' | tr '\n' ' '); do
                 -E REPORT_REPO="$REPORT_REPO" \
                 -E OPENCODE_MODEL="$OPENCODE_MODEL" \
                 -E PR_METRICS="$PR_METRICS" \
+                -E PR_REPORT="$PR_REPORT" \
                 /bin/bash -c "cd $PR_WORKSPACE && ./.opencode_runner.sh" > "/out/nspawn_${SAFE_REPO_NAME}_${PR}.log" 2>&1; then
                 
                 EXIT_CODE=$?
@@ -189,7 +190,7 @@ for CURRENT_REPO in $(echo "$REPOS" | tr ',' ' ' | tr '\n' ' '); do
                 echo "✅ Report and metrics for PR #$PR securely saved to encrypted database."
                 
                 # Cleanup the flat files from the volume after successful database ingestion
-                rm -f "$PR_REPORT" "$PR_METRICS" "/out/nspawn_${SAFE_REPO_NAME}_${PR}.log"
+                rm -f "$PR_REPORT" "$PR_METRICS"
             else
                 echo "⚠️ No report was generated for PR #$PR by opencode."
             fi

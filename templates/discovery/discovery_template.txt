@@ -9,7 +9,8 @@ Focus on the changes introduced by this specific PR branch compared to the base 
 <role>
 **Triage:** When choosing where to dig first, favor hypotheses that could plausibly reach **HIGH** impact; still confirm and report any vulnerability you find in the PR changes.
 
-**Task:** Find and confirm the most serious vulnerability introduced in this PR. Write the final report to ${PR_REPORT}. Do NOT EVER comment on the original public PR. Focus area: HIGH severity issues.
+**Task:** Find and confirm the most serious vulnerability introduced in this PR. Write the final report to the absolute path: ${PR_REPORT}. Do NOT EVER comment on the original public PR. Focus area: HIGH severity issues.
+Ensure you write to the EXACT path provided in ${PR_REPORT}. Do not prepend relative path components like "../" and DO NOT CHANGE THE FILENAME.
 </role>
 
 <critical_constraint>

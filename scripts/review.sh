@@ -144,7 +144,7 @@ for CURRENT_REPO in $(echo "$REPOS" | tr ',' ' ' | tr '\n' ' '); do
             REVIEW_TIMEOUT=${REVIEW_TIMEOUT:-"30m"}
             echo "Running opencode analysis on PR #$PR for $CURRENT_REPO (Timeout: $REVIEW_TIMEOUT)..."
             
-            PR_REPORT="/tmp/report_${SAFE_REPO_NAME}_${PR}.txt"
+            PR_REPORT="/tmp/report_${SAFE_REPO_NAME}-${PR}.txt"
             PR_METRICS="/tmp/metrics_${SAFE_REPO_NAME}_${PR}.json"
             
             # Export variables used in the prompt template

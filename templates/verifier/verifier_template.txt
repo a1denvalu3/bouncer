@@ -48,7 +48,7 @@ If you have a CONFIRMED vulnerability based on your verification in Phase 0:
 7. (Optional but recommended) Add your exploit to `__tests__/<slug>/test.ts` following the `@scripts/` import rules defined in `AGENTS.md`.
 8. Commit the files: `git add . && git commit -m "Add report for PR #${PR}: <slug>"`
 9. Push the changes: If you are on an existing branch, just `git push`. If you created a new branch, `git push -u origin report/pr-${PR}-<slug>`.
-10. If you created a new branch, open a Pull Request using `gh pr create --title "[${CURRENT_REPO}#${PR}] Report: <human-readable title>" --body "Security audit finding for ${CURRENT_REPO} PR #${PR} (https://github.com/${CURRENT_REPO}/pull/${PR}). Branch: ${HEAD_REF_NAME}." --label "severity:<severity>" --label "target:<project>" --label "<NUT-XX>". Make sure to add specific labels for the severity, the affected project, and any affected NUTs. IMPORTANT: You MUST explicitly link the reviewed pull request in the PR description body. If you pushed to an existing branch, skip this step.
+10. If you created a new branch, open a Pull Request. IMPORTANT: The PR title MUST be in the format "[${CURRENT_REPO}#${PR}] Report: <human-readable-title>". Run: `gh pr create --title "[${CURRENT_REPO}#${PR}] Report: <human-readable title>" --body "Security audit finding for ${CURRENT_REPO} PR #${PR} (https://github.com/${CURRENT_REPO}/pull/${PR}). Branch: ${HEAD_REF_NAME}." --label "severity:<severity>" --label "target:<project>" --label "<NUT-XX>". Make sure to add specific labels for the severity, the affected project, and any affected NUTs. IMPORTANT: You MUST explicitly link the reviewed pull request in the PR description body. If you pushed to an existing branch, skip this step.
 </phases>
 
 <methodology>

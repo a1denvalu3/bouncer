@@ -10,15 +10,11 @@ export OPENCODE_PERMISSION='{"external_directory": {"*": "allow"}}'
 # 1. Run discovery
 echo "Running discovery..."
 echo "DEBUG: PR_REPORT is set to: $PR_REPORT"
-# Create discovery prompt
-envsubst < /app/templates/discovery/discovery_template.txt > .opencode_discovery_prompt
 opencode run -m "$OPENCODE_MODEL" "$(cat .opencode_discovery_prompt)"
 
 # 2. Run verifier only if discovery produced a non-empty report
 if [ -f "$PR_REPORT" ]; then
     echo "Running verification..."
-    # Create verifier prompt
-    envsubst < /app/templates/verifier/verifier_template.txt > .opencode_verifier_prompt
     opencode run -m "$OPENCODE_MODEL" "$(cat .opencode_verifier_prompt)"
 else
     echo "No findings report to verify, skipping."

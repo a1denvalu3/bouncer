@@ -111,7 +111,8 @@ PR_METRICS="/tmp/metrics_${SAFE_REPO_NAME}_${PR}.json"
 export CURRENT_REPO PR_REPORT PR_METRICS REPORT_REPO PR HEAD_REF_NAME PR_WORKSPACE
 
 # Prepare runner for systemd-nspawn
-envsubst < /app/templates/prompt_template.txt > "$PR_WORKSPACE/.opencode_prompt"
+envsubst < /app/templates/discovery/discovery_template.txt > "$PR_WORKSPACE/.opencode_discovery_prompt"
+envsubst < /app/templates/verifier/verifier_template.txt > "$PR_WORKSPACE/.opencode_verifier_prompt"
 cp /app/scripts/opencode_runner.sh "$PR_WORKSPACE/.opencode_runner.sh"
 
 # Generate a valid, unique machine name (alphanumeric and dashes only)
@@ -132,7 +133,6 @@ if ! timeout -k 5m "$REVIEW_TIMEOUT" systemd-nspawn --quiet --keep-unit --regist
     -E GOOGLE_API_KEY="$GOOGLE_API_KEY" \
     -E REPORT_REPO="$REPORT_REPO" \
     -E OPENCODE_MODEL="$OPENCODE_MODEL" \
-    -E PR_REPORT="$PR_REPORT" \
     -E PR_METRICS="$PR_METRICS" \
     /bin/bash -c "cd $PR_WORKSPACE && ./.opencode_runner.sh" > "/out/nspawn_${SAFE_REPO_NAME}_${PR}.log" 2>&1; then
     

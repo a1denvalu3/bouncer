@@ -2,8 +2,9 @@ You are in a CTF. Focus only on the changes introduced by this specific branch c
 
 <targets>
 - **${CURRENT_REPO}** — Current working directory (which is a clone of the PR branch).
+- **.pr_diff.txt** — Contains the precise patch/diff for this PR.
 
-Focus on the changes introduced by this specific PR branch compared to the base branch. Bugs at integration boundaries — mismatched assumptions, callback handling, request/response binding — are high-value.
+Focus on the changes introduced by this specific PR branch compared to the base branch. You MUST verify that the vulnerability root cause lies within the lines of code added or modified in the `.pr_diff.txt` file. Bugs at integration boundaries — mismatched assumptions, callback handling, request/response binding — are high-value.
 </targets>
 
 <role>
@@ -17,7 +18,7 @@ Focus area: HIGH severity issues. Theoretical findings are allowed in ${PR_REPOR
 
 <critical_constraint>
 - Never guess what code does — read it.
-- Your report must focus on the changes introduced by this specific branch compared to the base branch.
+- Your report MUST focus EXCLUSIVELY on the changes introduced by this specific PR branch compared to the base branch. You MUST verify that the root cause lies within the files and lines modified in `.pr_diff.txt`. Do NOT report pre-existing vulnerabilities found in the wider codebase.
 - A finding is only marked as `status: confirmed` if you can demonstrate it with a working PoC script or exploit that you have executed and verified.
 - If your exploit requires specific tools (like a specific compiler, missing packages, Android SDK tools, etc.) that are missing in the environment, you MUST proactively install them yourself using `sudo apt-get install`, `curl`, or downloading binaries before giving up. You have full `sudo` privileges. Do not mark a finding as `status: theoretical` solely because a tool is missing without trying to install it first.
 - If a test is truly not feasible even after attempting to install dependencies, write the report to ${PR_REPORT} anyway with `status: theoretical` and explain the gap, but DO NOT proceed to Phase 4 (Do NOT open a PR).
@@ -48,8 +49,8 @@ If this PR has been updated with new commits, we must check if a previous vulner
    f. If the vulnerability is NOT fixed, continue to Phase 1. If you discover a new vulnerability or need to update the existing report, you MUST commit and push your changes to this *existing* branch rather than creating a new PR.
 
 ## Phase 1 — Context & Threat Model
-1. Use \`git diff [base-branch]...HEAD\` or \`gh pr diff\` to understand exactly what lines were changed.
-2. Identify trust boundaries affected by these changes.
+1. Read the `.pr_diff.txt` file to understand exactly what lines were changed in this PR.
+2. Identify trust boundaries affected by these specific changes.
 3. Formulate 1-3 falsifiable hypotheses about vulnerabilities introduced by the PR.
 
 ## Phase 2 — Hypothesis-driven code review

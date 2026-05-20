@@ -62,7 +62,7 @@ if ! git fetch origin; then
 fi
 
 # Fetch specific PR details
-PR_DATA=$(gh pr view "$PR" --json number,headRefOid,headRefName 2>/dev/null)
+PR_DATA=$(gh pr view "$PR" --json number,headRefOid,headRefName,baseRefName 2>/dev/null)
 
 if [ -z "$PR_DATA" ]; then
     echo "PR #$PR not found in $CURRENT_REPO or other error occurred."
@@ -71,6 +71,7 @@ fi
 
 HEAD_OID=$(echo "$PR_DATA" | jq -r '.headRefOid')
 HEAD_REF_NAME=$(echo "$PR_DATA" | jq -r '.headRefName')
+BASE_REF_NAME=$(echo "$PR_DATA" | jq -r '.baseRefName')
 
 if [ -z "$HEAD_OID" ] || [ "$HEAD_OID" == "null" ]; then
     echo "Could not extract headRefOid for PR #$PR"
@@ -101,6 +102,9 @@ if ! gh pr checkout "$PR"; then
     exit 1
 fi
 
+echo "Generating PR diff..."
+gh pr diff "$PR" > "$PR_WORKSPACE/.pr_diff.txt" || touch "$PR_WORKSPACE/.pr_diff.txt"
+
 REVIEW_TIMEOUT=${REVIEW_TIMEOUT:-"30m"}
 echo "Running opencode analysis on PR #$PR for $CURRENT_REPO (Timeout: $REVIEW_TIMEOUT)..."
 
@@ -108,7 +112,7 @@ PR_REPORT="/tmp/report_${SAFE_REPO_NAME}-${PR}.txt"
 PR_METRICS="/tmp/metrics_${SAFE_REPO_NAME}_${PR}.json"
 
 # Export variables used in the prompt template
-export CURRENT_REPO PR_REPORT PR_METRICS REPORT_REPO PR HEAD_REF_NAME PR_WORKSPACE
+export CURRENT_REPO PR_REPORT PR_METRICS REPORT_REPO PR HEAD_REF_NAME BASE_REF_NAME PR_WORKSPACE
 
 # Prepare runner for systemd-nspawn
 envsubst < /app/templates/discovery/discovery_template.txt > "$PR_WORKSPACE/.opencode_discovery_prompt"

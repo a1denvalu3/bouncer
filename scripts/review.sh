@@ -71,7 +71,7 @@ for CURRENT_REPO in $(echo "$REPOS" | tr ',' ' ' | tr '\n' ' '); do
     CUTOFF_DATE=$(date -d "${PR_MAX_AGE} ago" +%Y-%m-%d)
     echo "Looking for open PRs updated since ${CUTOFF_DATE} (Max age: ${PR_MAX_AGE})..."
 
-    PR_DATA=$(gh pr list --search "state:open updated:>=${CUTOFF_DATE}" --json number,headRefOid,headRefName)
+    PR_DATA=$(gh pr list --search "state:open updated:>=${CUTOFF_DATE}" --json number,headRefOid,headRefName,baseRefName)
 
     if [ -z "$PR_DATA" ] || [ "$PR_DATA" == "[]" ]; then
         echo "No recent open PRs found for $CURRENT_REPO."
@@ -94,6 +94,7 @@ for CURRENT_REPO in $(echo "$REPOS" | tr ',' ' ' | tr '\n' ' '); do
             PR=$(_jq '.number')
             HEAD_OID=$(_jq '.headRefOid')
             HEAD_REF_NAME=$(_jq '.headRefName')
+            BASE_REF_NAME=$(_jq '.baseRefName')
             
             # Use flock to ensure we don't process the same PR concurrently across different cron runs
             LOCK_FILE="/out/lock_${SAFE_REPO_NAME}_${PR}.lock"
@@ -140,6 +141,9 @@ for CURRENT_REPO in $(echo "$REPOS" | tr ',' ' ' | tr '\n' ' '); do
                 rm -rf "$PR_WORKSPACE"
                 exit 1
             fi
+            
+            echo "Generating PR diff..."
+            gh pr diff "$PR" > "$PR_WORKSPACE/.pr_diff.txt" || touch "$PR_WORKSPACE/.pr_diff.txt"
 
             REVIEW_TIMEOUT=${REVIEW_TIMEOUT:-"30m"}
             echo "Running opencode analysis on PR #$PR for $CURRENT_REPO (Timeout: $REVIEW_TIMEOUT)..."
@@ -148,7 +152,7 @@ for CURRENT_REPO in $(echo "$REPOS" | tr ',' ' ' | tr '\n' ' '); do
             PR_METRICS="/tmp/metrics_${SAFE_REPO_NAME}_${PR}.json"
             
             # Export variables used in the prompt template
-            export CURRENT_REPO PR_REPORT PR_METRICS REPORT_REPO PR HEAD_REF_NAME PR_WORKSPACE
+            export CURRENT_REPO PR_REPORT PR_METRICS REPORT_REPO PR HEAD_REF_NAME BASE_REF_NAME PR_WORKSPACE
 
             # Prepare runner for systemd-nspawn
             envsubst < /app/templates/discovery/discovery_template.txt > "$PR_WORKSPACE/.opencode_discovery_prompt"

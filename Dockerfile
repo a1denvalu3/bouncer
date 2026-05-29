@@ -38,5 +38,5 @@ RUN mkdir /nspawn-root && rsync -a --exclude=/dev --exclude=/proc --exclude=/sys
 
 WORKDIR /app
 
-# Start cron in the foreground via entrypoint
-CMD ["/app/scripts/entrypoint.sh"]
+# Setup entrypoint
+ENTRYPOINT ["/app/scripts/entrypoint.sh"]

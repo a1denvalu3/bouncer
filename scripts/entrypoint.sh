@@ -23,6 +23,12 @@ fi
 # Run database migrations before starting the poller
 /app/scripts/migrate_db.sh
 
+# If arguments are passed, execute them and exit
+if [ $# -gt 0 ]; then
+    echo "Executing command: $@"
+    exec "$@"
+fi
+
 # Default sleep duration to 60 seconds if not provided
 SLEEP_DURATION=${SLEEP_DURATION:-60}
 

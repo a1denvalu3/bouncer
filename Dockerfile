@@ -16,7 +16,12 @@ RUN apt-get update && apt-get install -y \
     dnsmasq \
     isc-dhcp-client \
     iproute2 \
-    sqlcipher
+    sqlcipher \
+    python3 \
+    python3-pip \
+    python3-venv \
+    python3-dev \
+    build-essential
 
 # Install GitHub CLI (gh)
 RUN curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg \
@@ -24,6 +29,11 @@ RUN curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | d
     && echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | tee /etc/apt/sources.list.d/github-cli.list > /dev/null \
     && apt-get update \
     && apt-get install gh -y
+
+# Install Poetry
+ENV POETRY_HOME=/opt/poetry
+RUN curl -sSL https://install.python-poetry.org | python3 - \
+    && ln -s /opt/poetry/bin/poetry /usr/local/bin/poetry
 
 # Install opencode via NPM
 RUN npm install -g opencode-ai

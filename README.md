@@ -49,11 +49,12 @@ Bouncer is configured using environment variables. Create a `.env` file in the p
   - `OPENAI_API_KEY`
   - `ANTHROPIC_API_KEY`
   - `GOOGLE_API_KEY`
+  - `KIMI_API_KEY` (Kimi for Coding plan key; pair with `OPENCODE_MODEL=kimi-for-coding/k3` or another model from that provider)
 - `REPOS`: A comma-separated list of target repositories to monitor (e.g., `org/repo1,org/repo2`).
 - `DB_PASSPHRASE`: A strong passphrase to encrypt the local SQLite (SQLCipher) database containing PR state tracking and generated vulnerability reports. This is strictly required and does not have a default.
 
 ### Optional Variables
-- `REPORT_REPO`: The private repository where security findings will be submitted as PRs (default: `myorg/security-audits`).
+- `REPORT_REPO`: The private repository where security findings will be submitted as PRs. **Optional** — when unset or empty, Bouncer runs in **local-only reporting mode**: all findings (including confirmed, PoC-backed ones) are stored only in the encrypted local database, and the AI agents are explicitly instructed not to open PRs, push branches, or comment anywhere. (If you use `docker-compose.yml`, remove or empty the `REPORT_REPO` line there for local-only mode.)
 - `OPENCODE_MODEL`: The AI model to use (default: `openrouter/google/gemini-3.1-pro-preview`).
 - `SLEEP_DURATION`: Time in seconds to sleep between review cycles (default: `60`).
 - `REVIEW_TIMEOUT`: Maximum execution time for a single PR review before it is forcibly killed. Accepts standard `timeout` command formats like "6h", "30m" (default: `30m`).
@@ -61,6 +62,8 @@ Bouncer is configured using environment variables. Create a `.env` file in the p
 - `SKIP_PRS`: A comma-separated list of PRs to explicitly ignore, formatted as `org/repo#pr` (e.g., `myorg/repo1#139,myorg/repo2#42`).
 - `ALLOWED_AUTHOR_ASSOCIATIONS`: A comma-separated list of GitHub author associations allowed to trigger reviews. This acts as a configurable security feature to prevent execution on PRs from unknown users (default: `COLLABORATOR,CONTRIBUTOR,MEMBER,OWNER`).
 - `MAX_WORKER`: Maximum number of PR reviews to run concurrently per cycle. `0` (default) means unlimited — every eligible PR is launched in parallel. When set to a positive integer, the review loop blocks until a slot frees up before launching another review, capping resource usage on hosts with limited CPU/memory.
+- `FINDINGS_BUDGET`: Maximum number of entries kept in the carry-forward findings ledger used by backfill mode (default: `10`). When exceeded, the least important findings (lowest severity, `theoretical` before `confirmed`, oldest first) are evicted.
+- `BACKFILL_ENFORCE_AUTHOR`: Set to `1` to apply the `ALLOWED_AUTHOR_ASSOCIATIONS` filter in backfill mode. Backfill skips this filter by default because it reviews maintainer-merged historical PRs, whose authors often show a `NONE` association today.
 
 ## Usage
 
@@ -85,6 +88,20 @@ You can run an isolated review on a specific PR without waiting for or affecting
 ```bash
 docker compose run --rm bouncer /app/scripts/review_pr.sh myorg/myrepo 42
 ```
+
+### Historical Backfill Mode (Chained Whole-Repo Scan)
+Backfill mode scans a whole repository by reviewing every **merged** PR sequentially, from the beginning of its history (or a start point in the past) up to the latest merged PR. Each review runs in the same isolated `systemd-nspawn` sandbox as continuous mode, but reviews are **chained**: a findings ledger is carried forward from one PR to the next, so the agent knows which vulnerabilities were already discovered, avoids duplicates, and notices when a later PR fixes an earlier finding. The ledger is bounded by `FINDINGS_BUDGET` — when it grows past the budget, the least important findings are evicted.
+
+```bash
+# Scan every merged PR from the beginning of the repo's history
+docker compose run --rm bouncer /app/scripts/backfill.sh myorg/myrepo
+
+# Scan a range — bounds accept a PR number or a date (YYYY-MM-DD)
+docker compose run --rm bouncer /app/scripts/backfill.sh myorg/myrepo 100 500
+docker compose run --rm bouncer /app/scripts/backfill.sh myorg/myrepo 2023-01-01
+```
+
+Backfill is **resumable**: reviewed PRs are recorded in the encrypted database, so re-running the same command after an interruption continues where it stopped. Reports and metrics are ingested into the database exactly as in continuous mode, and confirmed PoC-backed findings are submitted as PRs to `REPORT_REPO` when it is configured (otherwise they stay local-only). Note that a full-history scan is a long, cost-intensive operation — narrow the range or lower the budget as needed.
 
 ## Logs and Output
 

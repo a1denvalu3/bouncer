@@ -12,13 +12,23 @@ if [ -z "$REPOS" ] && [ -n "$REPO_NAME" ]; then
     REPOS="$REPO_NAME"
 fi
 
-if [ -z "$REPOS" ] || [ -z "$GITHUB_TOKEN" ] || [ -z "$REPORT_REPO" ]; then
-    echo "ERROR: REPOS (or REPO_NAME), GITHUB_TOKEN, and REPORT_REPO must be set."
+if [ -z "$REPOS" ] || [ -z "$GITHUB_TOKEN" ]; then
+    echo "ERROR: REPOS (or REPO_NAME) and GITHUB_TOKEN must be set."
     exit 1
 fi
 
-if [ -z "$OPENROUTER_API_KEY" ] && [ -z "$OPENAI_API_KEY" ] && [ -z "$ANTHROPIC_API_KEY" ] && [ -z "$GOOGLE_API_KEY" ]; then
-    echo "ERROR: At least one API key (OPENROUTER_API_KEY, OPENAI_API_KEY, ANTHROPIC_API_KEY, or GOOGLE_API_KEY) must be set."
+# REPORT_REPO is optional: when unset, findings are only stored in the local
+# encrypted database and no report PRs are opened (local-only reporting mode).
+if [ -n "$REPORT_REPO" ]; then
+    SUBMISSION_SNIPPET="/app/templates/submission/remote.txt"
+    echo "Reporting mode: remote (findings PRs go to $REPORT_REPO)"
+else
+    SUBMISSION_SNIPPET="/app/templates/submission/local.txt"
+    echo "Reporting mode: local (REPORT_REPO unset — findings stay in the encrypted database)"
+fi
+
+if [ -z "$OPENROUTER_API_KEY" ] && [ -z "$OPENAI_API_KEY" ] && [ -z "$ANTHROPIC_API_KEY" ] && [ -z "$GOOGLE_API_KEY" ] && [ -z "$KIMI_API_KEY" ]; then
+    echo "ERROR: At least one API key (OPENROUTER_API_KEY, OPENAI_API_KEY, ANTHROPIC_API_KEY, GOOGLE_API_KEY, or KIMI_API_KEY) must be set."
     exit 1
 fi
 
@@ -154,13 +164,22 @@ for CURRENT_REPO in $(echo "$REPOS" | tr ',' ' ' | tr '\n' ' '); do
             # Export variables used in the prompt template
             export CURRENT_REPO PR_REPORT PR_METRICS REPORT_REPO PR HEAD_REF_NAME BASE_REF_NAME PR_WORKSPACE
 
+            # Render the submission phase (remote PRs vs local-only) for the prompt templates
+            PR_SUBMISSION_PHASE=$(envsubst < "$SUBMISSION_SNIPPET")
+            export PR_SUBMISSION_PHASE
+
             # Prepare runner for systemd-nspawn
             envsubst < /app/templates/discovery/discovery_template.txt > "$PR_WORKSPACE/.opencode_discovery_prompt"
             envsubst < /app/templates/verifier/verifier_template.txt > "$PR_WORKSPACE/.opencode_verifier_prompt"
             cp /app/scripts/opencode_runner.sh "$PR_WORKSPACE/.opencode_runner.sh"
 
-            # Generate a valid, unique machine name (alphanumeric and dashes only)
-            MACHINE_NAME="pr-${PR}-$(tr -dc 'a-f0-9' < /dev/urandom | head -c 8)"
+            # Generate a valid, unique machine name (alphanumeric and dashes only).
+            # nspawn names the host veth "vb-<machine>", capped at 15 chars (IFNAMSIZ),
+            # so keep the machine name <= 12 chars to avoid truncation warnings.
+            MACHINE_NAME="pr${PR}-$(tr -dc 'a-f0-9' < /dev/urandom | head -c 4)"
+            if [ ${#MACHINE_NAME} -gt 12 ]; then
+                MACHINE_NAME="pr$(tr -dc 'a-f0-9' < /dev/urandom | head -c 10)"
+            fi
 
             # Run the bot in its own ephemeral nspawn container using overlayfs
             if ! timeout -k 5m "$REVIEW_TIMEOUT" systemd-nspawn --quiet --keep-unit --register=no \
@@ -175,6 +194,7 @@ for CURRENT_REPO in $(echo "$REPOS" | tr ',' ' ' | tr '\n' ' '); do
                 -E OPENAI_API_KEY="$OPENAI_API_KEY" \
                 -E ANTHROPIC_API_KEY="$ANTHROPIC_API_KEY" \
                 -E GOOGLE_API_KEY="$GOOGLE_API_KEY" \
+                -E KIMI_API_KEY="$KIMI_API_KEY" \
                 -E REPORT_REPO="$REPORT_REPO" \
                 -E OPENCODE_MODEL="$OPENCODE_MODEL" \
                 -E PR_METRICS="$PR_METRICS" \

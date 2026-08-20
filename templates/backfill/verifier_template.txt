@@ -76,6 +76,10 @@ BUDGET: The ledger MUST contain at most ${FINDINGS_BUDGET} entries. If it exceed
 2. Within the same severity, `status: theoretical` before `status: confirmed`.
 3. Within the same severity and status, the oldest finding (lowest PR number) first.
 
+RESOLUTIONS FILE: For every ledger entry REMOVED because THIS PR fixes, invalidates, or disproves that finding — whether the removal was made by you or by the Discovery agent, and NEVER for entries removed solely due to budget eviction — append one line to ${PR_RESOLUTIONS} (create the file if needed):
+`<original_pr_number>|<one-line reason: fixed / invalidated / disproven, and how>`
+The orchestrator uses this file to mark the original finding's stored report as resolved in the database, so every removal-for-resolution MUST have exactly one corresponding line.
+
 ${PR_RESOLUTION_PHASE}
 </phases>
 

@@ -75,6 +75,29 @@ execute_sql_insert_file() {
     execute_sql "$sql"
 }
 
+# Mark all unresolved reports for a given PR as resolved by a later PR.
+# The reason text uses the same hex/CAST pattern as report ingestion so
+# arbitrary agent-written text cannot break the SQL.
+mark_report_resolved() {
+    local repo="$1"
+    local orig_pr="$2"
+    local resolved_by="$3"
+    local reason="$4"
+
+    local reason_hex=""
+    if [ -n "$reason" ]; then
+        reason_hex=$(printf '%s' "$reason" | od -A n -v -t x1 | tr -d ' \n')
+    fi
+
+    local sql="UPDATE pr_reports SET resolved_by_pr=${resolved_by}, resolved_at=CURRENT_TIMESTAMP"
+    if [ -n "$reason_hex" ]; then
+        sql+=", resolved_reason=CAST(X'${reason_hex}' AS TEXT)"
+    fi
+    sql+=" WHERE repo='${repo}' AND pr_number=${orig_pr} AND resolved_by_pr IS NULL;"
+
+    execute_sql "$sql"
+}
+
 # Retrieve the carry-forward findings ledger for a repo (empty if none exists yet)
 get_ledger() {
     local repo="$1"

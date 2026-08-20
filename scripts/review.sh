@@ -173,8 +173,13 @@ for CURRENT_REPO in $(echo "$REPOS" | tr ',' ' ' | tr '\n' ' '); do
             envsubst < /app/templates/verifier/verifier_template.txt > "$PR_WORKSPACE/.opencode_verifier_prompt"
             cp /app/scripts/opencode_runner.sh "$PR_WORKSPACE/.opencode_runner.sh"
 
-            # Generate a valid, unique machine name (alphanumeric and dashes only)
-            MACHINE_NAME="pr-${PR}-$(tr -dc 'a-f0-9' < /dev/urandom | head -c 8)"
+            # Generate a valid, unique machine name (alphanumeric and dashes only).
+            # nspawn names the host veth "vb-<machine>", capped at 15 chars (IFNAMSIZ),
+            # so keep the machine name <= 12 chars to avoid truncation warnings.
+            MACHINE_NAME="pr${PR}-$(tr -dc 'a-f0-9' < /dev/urandom | head -c 4)"
+            if [ ${#MACHINE_NAME} -gt 12 ]; then
+                MACHINE_NAME="pr$(tr -dc 'a-f0-9' < /dev/urandom | head -c 10)"
+            fi
 
             # Run the bot in its own ephemeral nspawn container using overlayfs
             if ! timeout -k 5m "$REVIEW_TIMEOUT" systemd-nspawn --quiet --keep-unit --register=no \

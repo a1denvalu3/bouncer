@@ -231,7 +231,9 @@ while read -r row; do
         cd "$PR_WORKSPACE"
 
         echo "Checking out PR #$PR (Commit: $HEAD_OID)..."
-        if ! gh pr checkout "$PR"; then
+        # Fetch the PR's persistent refs/pull/N/head ref: gh pr checkout fails for merged
+        # PRs whose head branch was deleted (it fetches refs/heads/<branch> from origin).
+        if ! git fetch origin "+refs/pull/${PR}/head" || ! git checkout --detach "$HEAD_OID"; then
             echo "Failed to checkout PR #$PR for $CURRENT_REPO"
             cd /app
             rm -rf "$PR_WORKSPACE"
@@ -261,8 +263,13 @@ while read -r row; do
         envsubst < /app/templates/backfill/verifier_template.txt > "$PR_WORKSPACE/.opencode_verifier_prompt"
         cp /app/scripts/opencode_runner.sh "$PR_WORKSPACE/.opencode_runner.sh"
 
-        # Generate a valid, unique machine name (alphanumeric and dashes only)
-        MACHINE_NAME="bf-${PR}-$(tr -dc 'a-f0-9' < /dev/urandom | head -c 8)"
+        # Generate a valid, unique machine name (alphanumeric and dashes only).
+        # nspawn names the host veth "vb-<machine>", capped at 15 chars (IFNAMSIZ),
+        # so keep the machine name <= 12 chars to avoid truncation warnings.
+        MACHINE_NAME="bf${PR}-$(tr -dc 'a-f0-9' < /dev/urandom | head -c 4)"
+        if [ ${#MACHINE_NAME} -gt 12 ]; then
+            MACHINE_NAME="bf$(tr -dc 'a-f0-9' < /dev/urandom | head -c 10)"
+        fi
 
         # Run the bot in its own ephemeral nspawn container using overlayfs
         if ! timeout -k 5m "$REVIEW_TIMEOUT" systemd-nspawn --quiet --keep-unit --register=no \

@@ -39,23 +39,36 @@ class DatabaseError(Exception):
 
 
 def run_sql(query):
-    """Run a read-only query against the encrypted DB and return stdout."""
+    """Run a read-only query against the encrypted DB and return stdout.
+
+    The database may be in SQLCipher 3.x format (created by older Bouncer
+    images whose Debian base shipped sqlcipher 3.x). SQLCipher 4.x clients
+    reject such files with "file is not a database" unless compatibility
+    mode is enabled, so on that specific error we retry with
+    cipher_compatibility = 3 (the pragma must come *after* PRAGMA key).
+    """
     if not PASSPHRASE:
         raise DatabaseError("DB_PASSPHRASE is not set")
     if not os.path.isfile(DB_PATH):
         raise DatabaseError(f"database not found at {DB_PATH}")
     key = PASSPHRASE.replace("'", "''")
-    result = subprocess.run(
-        [
-            "sqlcipher", "-batch", "-list", "-noheader",
-            "-cmd", f"PRAGMA key = '{key}';",
-            DB_PATH, query,
-        ],
-        capture_output=True, text=True, timeout=30,
-    )
-    if result.returncode != 0:
-        raise DatabaseError(result.stderr.strip() or "sqlcipher query failed")
-    return result.stdout
+    attempts = [
+        [f"PRAGMA key = '{key}';"],
+        [f"PRAGMA key = '{key}';", "PRAGMA cipher_compatibility = 3;"],
+    ]
+    last_err = "sqlcipher query failed"
+    for pragmas in attempts:
+        cmd = ["sqlcipher", "-batch", "-list", "-noheader"]
+        for pragma in pragmas:
+            cmd += ["-cmd", pragma]
+        cmd += [DB_PATH, query]
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
+        if result.returncode == 0:
+            return result.stdout
+        last_err = result.stderr.strip() or last_err
+        if "file is not a database" not in result.stderr:
+            break  # not a cipher-format problem — don't retry
+    raise DatabaseError(last_err)
 
 
 def unhex(value):

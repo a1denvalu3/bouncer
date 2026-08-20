@@ -58,6 +58,7 @@ Bouncer is configured using environment variables. Create a `.env` file in the p
 - `OPENCODE_MODEL`: The AI model to use (default: `openrouter/google/gemini-3.1-pro-preview`).
 - `SLEEP_DURATION`: Time in seconds to sleep between review cycles (default: `60`).
 - `REVIEW_TIMEOUT`: Maximum execution time for a single PR review before it is forcibly killed. Accepts standard `timeout` command formats like "6h", "30m" (default: `30m`).
+- `DASHBOARD_TOKEN`: Optional bearer token protecting the report dashboard. Strongly recommended — the dashboard exposes full vulnerability reports. When unset, the dashboard is unauthenticated and should only be bound to localhost.
 - `PR_MAX_AGE`: How far back to look for active PRs. Supports `date` tool formats like "4 months", "30 days", "1 year" (default: `4 months`).
 - `SKIP_PRS`: A comma-separated list of PRs to explicitly ignore, formatted as `org/repo#pr` (e.g., `myorg/repo1#139,myorg/repo2#42`).
 - `ALLOWED_AUTHOR_ASSOCIATIONS`: A comma-separated list of GitHub author associations allowed to trigger reviews. This acts as a configurable security feature to prevent execution on PRs from unknown users (default: `COLLABORATOR,CONTRIBUTOR,MEMBER,OWNER`).
@@ -107,3 +108,22 @@ Backfill is **resumable**: reviewed PRs are recorded in the encrypted database, 
 
 - **Logs:** View the process using `docker logs -f bouncer`. In addition to execution details, token usage and cost metrics will be printed to stdout after every run.
 - **Persistence Database:** State tracking, raw LLM metrics, and the full text of any generated vulnerability reports are stored in an AES-256 encrypted SQLCipher database permanently saved to the local `./out/bouncer.db` volume. Use the provided `DB_PASSPHRASE` to decrypt and access this file manually if required.
+
+## Report Dashboard
+
+A read-only web dashboard (`dashboard/`) decrypts and displays the reports stored in the encrypted database: findings with severity/status badges (parsed from the report frontmatter), token/cost metrics per review, full markdown rendering, one-click extraction of any report as a `.md` file, and the backfill findings ledgers.
+
+Start it alongside the main service:
+
+```bash
+docker compose up -d dashboard
+# open http://localhost:5001
+```
+
+It uses the same `DB_PASSPHRASE` as the bouncer service and reads the same `./out` volume — the database is never modified. Set `DASHBOARD_TOKEN` to require a bearer token (the UI will prompt for it), and `DASHBOARD_PORT` to change the host port (default: `5001`).
+
+You can also run it directly on the host (requires `python3` and the `sqlcipher` CLI):
+
+```bash
+DB_PASSPHRASE=your_key DB_PATH=./out/bouncer.db python3 dashboard/app.py
+```

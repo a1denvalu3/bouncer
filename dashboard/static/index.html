@@ -1,0 +1,817 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BOUNCER // Report Console</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/marked@12/marked.min.js" defer></script>
+<script src="https://cdn.jsdelivr.net/npm/dompurify@3/dist/purify.min.js" defer></script>
+<style>
+:root {
+  --bg: #0b0d10;
+  --bg-panel: #101318;
+  --bg-raised: #151a21;
+  --line: #232a33;
+  --line-bright: #36404d;
+  --ink: #d6dde6;
+  --ink-dim: #8b98a5;
+  --ink-faint: #56616d;
+  --amber: #ffb000;
+  --amber-dim: rgba(255, 176, 0, 0.14);
+  --crit: #ff3b47;
+  --high: #ff7a18;
+  --med: #ffb000;
+  --low: #53b1fd;
+  --info: #8b98a5;
+  --ok: #3ddc84;
+  --font-display: "Chakra Petch", "Arial Narrow", sans-serif;
+  --font-mono: "IBM Plex Mono", "SFMono-Regular", Consolas, monospace;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html { height: 100%; }
+body {
+  min-height: 100vh;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-mono);
+  font-size: 14px;
+  overflow-x: hidden;
+}
+/* atmosphere: blueprint grid + scanline sheen + vignette */
+body::before {
+  content: "";
+  position: fixed; inset: 0;
+  background:
+    linear-gradient(rgba(255,176,0,0.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,176,0,0.025) 1px, transparent 1px);
+  background-size: 44px 44px;
+  pointer-events: none;
+  z-index: 0;
+}
+body::after {
+  content: "";
+  position: fixed; inset: 0;
+  background: radial-gradient(ellipse 120% 90% at 50% -10%, transparent 55%, rgba(0,0,0,0.55) 100%);
+  pointer-events: none;
+  z-index: 0;
+}
+#app { position: relative; z-index: 1; max-width: 1560px; margin: 0 auto; padding: 0 28px 60px; }
+
+/* ---------- header ---------- */
+header {
+  display: flex; align-items: baseline; justify-content: space-between;
+  padding: 26px 0 18px;
+  border-bottom: 1px solid var(--line);
+  animation: drop-in 0.5s cubic-bezier(.2,.9,.3,1) both;
+}
+.wordmark {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 30px;
+  letter-spacing: 0.14em;
+  color: var(--ink);
+  text-transform: uppercase;
+}
+.wordmark .slash { color: var(--amber); }
+.wordmark small {
+  display: block;
+  font-family: var(--font-mono);
+  font-weight: 400;
+  font-size: 10px;
+  letter-spacing: 0.42em;
+  color: var(--ink-faint);
+  margin-top: 2px;
+}
+.header-actions { display: flex; align-items: center; gap: 14px; }
+.conn-dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--ok);
+  box-shadow: 0 0 8px var(--ok);
+  animation: pulse 2.4s ease-in-out infinite;
+}
+.conn-dot.err { background: var(--crit); box-shadow: 0 0 8px var(--crit); }
+.conn-label { font-size: 10px; letter-spacing: 0.28em; color: var(--ink-dim); text-transform: uppercase; }
+.btn {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--amber);
+  background: transparent;
+  border: 1px solid var(--line-bright);
+  padding: 8px 16px;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+.btn:hover { background: var(--amber-dim); border-color: var(--amber); }
+.btn:disabled { opacity: 0.4; cursor: default; }
+
+/* ---------- stat strip ---------- */
+.stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  border: 1px solid var(--line);
+  border-top: none;
+  background: var(--bg-panel);
+}
+.stat {
+  padding: 18px 20px 14px;
+  border-right: 1px solid var(--line);
+  position: relative;
+  overflow: hidden;
+  animation: drop-in 0.5s cubic-bezier(.2,.9,.3,1) both;
+}
+.stat:nth-child(1) { animation-delay: 0.05s; }
+.stat:nth-child(2) { animation-delay: 0.10s; }
+.stat:nth-child(3) { animation-delay: 0.15s; }
+.stat:nth-child(4) { animation-delay: 0.20s; }
+.stat:nth-child(5) { animation-delay: 0.25s; }
+.stat:last-child { border-right: none; }
+.stat::after {
+  content: "";
+  position: absolute; left: 0; bottom: 0;
+  width: 100%; height: 2px;
+  background: var(--amber);
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 0.35s ease;
+}
+.stat:hover::after { transform: scaleX(1); }
+.stat .num {
+  font-family: var(--font-display);
+  font-size: 32px;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--ink);
+}
+.stat .num.accent { color: var(--amber); }
+.stat .lbl {
+  margin-top: 7px;
+  font-size: 9.5px;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+
+/* ---------- main layout ---------- */
+.console {
+  display: grid;
+  grid-template-columns: 400px 1fr;
+  gap: 0;
+  margin-top: 22px;
+  border: 1px solid var(--line);
+  background: var(--bg-panel);
+  min-height: 68vh;
+  animation: drop-in 0.6s 0.3s cubic-bezier(.2,.9,.3,1) both;
+}
+@media (max-width: 980px) { .console { grid-template-columns: 1fr; } }
+
+/* ---------- list pane ---------- */
+.list-pane {
+  border-right: 1px solid var(--line);
+  display: flex; flex-direction: column;
+  min-height: 0;
+}
+.pane-head {
+  padding: 14px 18px 12px;
+  border-bottom: 1px solid var(--line);
+}
+.pane-title {
+  font-size: 10px; letter-spacing: 0.34em; text-transform: uppercase;
+  color: var(--ink-faint);
+  display: flex; justify-content: space-between; align-items: center;
+}
+.pane-title .count { color: var(--amber); }
+.search-row { margin-top: 12px; display: flex; gap: 8px; }
+.search-row input {
+  flex: 1;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  color: var(--ink);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  padding: 8px 10px;
+  outline: none;
+}
+.search-row input:focus { border-color: var(--amber); }
+.search-row input::placeholder { color: var(--ink-faint); }
+.filters { padding: 10px 18px; border-bottom: 1px solid var(--line); display: flex; flex-wrap: wrap; gap: 6px; }
+.chip {
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  padding: 4px 10px;
+  border: 1px solid var(--line);
+  color: var(--ink-dim);
+  background: transparent;
+  cursor: pointer;
+  transition: all 0.12s;
+}
+.chip:hover { border-color: var(--line-bright); color: var(--ink); }
+.chip.on { border-color: var(--amber); color: var(--amber); background: var(--amber-dim); }
+.report-list { overflow-y: auto; max-height: calc(68vh - 130px); flex: 1; }
+.report-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid var(--line);
+  border-left: 3px solid transparent;
+  padding: 13px 18px;
+  cursor: pointer;
+  color: inherit;
+  font-family: inherit;
+  transition: background 0.12s, border-color 0.12s;
+}
+.report-item:hover { background: var(--bg-raised); }
+.report-item.sel { background: var(--bg-raised); border-left-color: var(--amber); }
+.ri-top { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+.ri-title {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--ink);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.ri-meta { font-size: 11px; color: var(--ink-dim); display: flex; gap: 12px; flex-wrap: wrap; }
+.ri-meta .repo { color: var(--ink); }
+.badge {
+  font-size: 9px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  padding: 2px 7px;
+  border: 1px solid;
+  flex-shrink: 0;
+}
+.badge.critical { color: var(--crit); border-color: var(--crit); background: rgba(255,59,71,0.1); }
+.badge.high     { color: var(--high); border-color: var(--high); background: rgba(255,122,24,0.1); }
+.badge.medium   { color: var(--med);  border-color: var(--med);  background: var(--amber-dim); }
+.badge.low      { color: var(--low);  border-color: var(--low);  background: rgba(83,177,253,0.1); }
+.badge.info, .badge.unknown { color: var(--info); border-color: var(--line-bright); }
+.badge.confirmed   { color: var(--ok); border-color: var(--ok); background: rgba(61,220,132,0.08); }
+.badge.theoretical { color: var(--ink-dim); border-color: var(--line-bright); border-style: dashed; }
+
+/* ---------- viewer pane ---------- */
+.viewer { display: flex; flex-direction: column; min-width: 0; }
+.viewer-head {
+  padding: 14px 22px;
+  border-bottom: 1px solid var(--line);
+  display: flex; align-items: center; justify-content: space-between; gap: 14px;
+  flex-wrap: wrap;
+}
+.viewer-title {
+  font-family: var(--font-display);
+  font-size: 19px; font-weight: 700;
+  color: var(--ink);
+}
+.viewer-sub { font-size: 11px; color: var(--ink-dim); margin-top: 4px; display: flex; gap: 14px; flex-wrap: wrap; }
+.viewer-sub a { color: var(--low); text-decoration: none; }
+.viewer-sub a:hover { text-decoration: underline; }
+.metrics-row { display: flex; gap: 18px; padding: 10px 22px; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+.metric { font-size: 11px; color: var(--ink-dim); }
+.metric b { color: var(--amber); font-weight: 600; }
+.report-body {
+  padding: 26px 30px 50px;
+  overflow-y: auto;
+  max-height: calc(68vh - 110px);
+  line-height: 1.65;
+  font-size: 13.5px;
+}
+.report-body h1, .report-body h2, .report-body h3, .report-body h4 {
+  font-family: var(--font-display);
+  color: var(--ink);
+  margin: 1.4em 0 0.55em;
+  letter-spacing: 0.03em;
+}
+.report-body h2 { font-size: 17px; border-bottom: 1px solid var(--line); padding-bottom: 6px; }
+.report-body h3 { font-size: 14.5px; color: var(--amber); }
+.report-body p { margin: 0.7em 0; color: #c3ccd6; }
+.report-body ul, .report-body ol { margin: 0.6em 0 0.6em 1.4em; color: #c3ccd6; }
+.report-body li { margin: 0.25em 0; }
+.report-body code {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  padding: 1px 6px;
+  color: var(--amber);
+}
+.report-body pre {
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--amber);
+  padding: 14px 16px;
+  overflow-x: auto;
+  margin: 0.9em 0;
+}
+.report-body pre code { background: none; border: none; padding: 0; color: var(--ink); }
+.report-body blockquote {
+  border-left: 3px solid var(--line-bright);
+  padding-left: 14px;
+  color: var(--ink-dim);
+  margin: 0.8em 0;
+}
+.report-body table { border-collapse: collapse; margin: 0.8em 0; }
+.report-body th, .report-body td { border: 1px solid var(--line); padding: 6px 12px; font-size: 12.5px; }
+.report-body th { background: var(--bg-raised); color: var(--amber); font-family: var(--font-display); }
+.report-body a { color: var(--low); }
+.report-body.raw-pre { white-space: pre-wrap; font-family: var(--font-mono); font-size: 12.5px; }
+
+/* ---------- empty / loading states ---------- */
+.empty {
+  padding: 80px 30px;
+  text-align: center;
+  color: var(--ink-faint);
+}
+.empty .glyph {
+  font-family: var(--font-display);
+  font-size: 44px; font-weight: 700;
+  letter-spacing: 0.2em;
+  color: var(--line-bright);
+  display: block; margin-bottom: 14px;
+}
+.empty p { font-size: 12px; letter-spacing: 0.2em; text-transform: uppercase; }
+
+/* ---------- ledger drawer ---------- */
+.ledger-bar {
+  margin-top: 22px;
+  border: 1px solid var(--line);
+  background: var(--bg-panel);
+  animation: drop-in 0.6s 0.4s cubic-bezier(.2,.9,.3,1) both;
+}
+.ledger-bar summary {
+  cursor: pointer;
+  padding: 14px 20px;
+  font-size: 10px; letter-spacing: 0.34em; text-transform: uppercase;
+  color: var(--ink-faint);
+  list-style: none;
+  user-select: none;
+}
+.ledger-bar summary::-webkit-details-marker { display: none; }
+.ledger-bar summary::before { content: "▸ "; color: var(--amber); }
+.ledger-bar[open] summary::before { content: "▾ "; }
+.ledger-content { border-top: 1px solid var(--line); padding: 8px 20px 20px; }
+.ledger-block { margin-top: 14px; }
+.ledger-block h4 {
+  font-family: var(--font-display); font-size: 13px; color: var(--amber);
+  letter-spacing: 0.1em; margin-bottom: 6px;
+}
+.ledger-block h4 span { color: var(--ink-faint); font-family: var(--font-mono); font-size: 10px; font-weight: 400; }
+.ledger-block pre {
+  background: var(--bg); border: 1px solid var(--line);
+  padding: 14px 16px; overflow-x: auto;
+  font-size: 12px; color: var(--ink-dim); line-height: 1.6;
+}
+
+/* ---------- auth overlay ---------- */
+#auth-overlay {
+  position: fixed; inset: 0;
+  background: rgba(6, 8, 10, 0.9);
+  backdrop-filter: blur(4px);
+  display: none;
+  align-items: center; justify-content: center;
+  z-index: 50;
+}
+#auth-overlay.show { display: flex; }
+.auth-card {
+  border: 1px solid var(--line-bright);
+  background: var(--bg-panel);
+  padding: 38px 42px;
+  width: 420px; max-width: 90vw;
+}
+.auth-card h2 {
+  font-family: var(--font-display);
+  letter-spacing: 0.2em; text-transform: uppercase;
+  font-size: 18px; margin-bottom: 8px;
+}
+.auth-card h2 span { color: var(--amber); }
+.auth-card p { font-size: 11.5px; color: var(--ink-dim); margin-bottom: 20px; line-height: 1.6; }
+.auth-card input {
+  width: 100%;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  color: var(--ink);
+  font-family: var(--font-mono);
+  padding: 10px 12px; font-size: 13px;
+  outline: none; margin-bottom: 14px;
+}
+.auth-card input:focus { border-color: var(--amber); }
+.auth-card .btn { width: 100%; padding: 11px; }
+.auth-err { color: var(--crit); font-size: 11px; margin-bottom: 10px; display: none; }
+
+footer {
+  margin-top: 34px;
+  padding-top: 16px;
+  border-top: 1px solid var(--line);
+  display: flex; justify-content: space-between;
+  font-size: 10px; letter-spacing: 0.24em; text-transform: uppercase;
+  color: var(--ink-faint);
+}
+
+@keyframes drop-in {
+  from { opacity: 0; transform: translateY(-10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+}
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <div class="wordmark">Bouncer<span class="slash">//</span>Report&nbsp;Console
+      <small>Encrypted findings · SQLCipher vault</small>
+    </div>
+    <div class="header-actions">
+      <span class="conn-dot" id="conn-dot"></span>
+      <span class="conn-label" id="conn-label">connecting</span>
+      <button class="btn" id="refresh-btn">↻ Refresh</button>
+    </div>
+  </header>
+
+  <section class="stats" id="stats">
+    <div class="stat"><div class="num accent" id="st-reports">–</div><div class="lbl">Reports in vault</div></div>
+    <div class="stat"><div class="num" id="st-confirmed">–</div><div class="lbl">Confirmed findings</div></div>
+    <div class="stat"><div class="num" id="st-repos">–</div><div class="lbl">Repositories</div></div>
+    <div class="stat"><div class="num" id="st-tracked">–</div><div class="lbl">PRs tracked</div></div>
+    <div class="stat"><div class="num accent" id="st-cost">–</div><div class="lbl">Est. LLM cost</div></div>
+  </section>
+
+  <main class="console">
+    <aside class="list-pane">
+      <div class="pane-head">
+        <div class="pane-title"><span>Findings</span><span class="count" id="list-count"></span></div>
+        <div class="search-row"><input id="search" type="text" placeholder="filter: title, repo, PR #…" autocomplete="off"></div>
+      </div>
+      <div class="filters" id="filters"></div>
+      <div class="report-list" id="report-list"></div>
+    </aside>
+    <section class="viewer" id="viewer">
+      <div class="empty" id="viewer-empty">
+        <span class="glyph">◈</span>
+        <p>Select a finding to decrypt &amp; inspect</p>
+      </div>
+      <div id="viewer-content" style="display:none; flex-direction:column; min-height:0;">
+        <div class="viewer-head">
+          <div>
+            <div class="viewer-title" id="v-title"></div>
+            <div class="viewer-sub" id="v-sub"></div>
+          </div>
+          <div style="display:flex; gap:8px; align-items:center;">
+            <span id="v-badges" style="display:flex; gap:6px;"></span>
+            <button class="btn" id="download-btn">⬇ Extract .md</button>
+          </div>
+        </div>
+        <div class="metrics-row" id="v-metrics"></div>
+        <article class="report-body" id="v-body"></article>
+      </div>
+    </section>
+  </main>
+
+  <details class="ledger-bar" id="ledger-bar">
+    <summary>Backfill findings ledgers</summary>
+    <div class="ledger-content" id="ledger-content"></div>
+  </details>
+
+  <footer>
+    <span>Bouncer report console</span>
+    <span id="foot-status">read-only · no-store</span>
+  </footer>
+</div>
+
+<div id="auth-overlay">
+  <div class="auth-card">
+    <h2>Vault <span>Locked</span></h2>
+    <p>This dashboard requires a bearer token (<code>DASHBOARD_TOKEN</code>). Enter it to decrypt and list reports. The token is kept only in this tab's session storage.</p>
+    <div class="auth-err" id="auth-err">Invalid token — access denied.</div>
+    <input type="password" id="auth-input" placeholder="dashboard token" autocomplete="off">
+    <button class="btn" id="auth-submit">Authenticate</button>
+  </div>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  const SEVERITIES = ["critical", "high", "medium", "low", "info"];
+  const state = {
+    reports: [],
+    ledgers: [],
+    reviewsTracked: 0,
+    repoFilter: null,
+    sevFilter: null,
+    query: "",
+    selectedId: null,
+    selectedText: null,
+  };
+
+  const $ = (id) => document.getElementById(id);
+  const esc = (s) => String(s ?? "").replace(/[&<>"']/g,
+    (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+
+  /* ---------- auth ---------- */
+  function token() { return sessionStorage.getItem("dash_token") || ""; }
+
+  async function api(path) {
+    const headers = {};
+    if (token()) headers["Authorization"] = "Bearer " + token();
+    const res = await fetch(path, { headers, cache: "no-store" });
+    if (res.status === 401) {
+      showAuth();
+      throw new Error("unauthorized");
+    }
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(body.error || ("HTTP " + res.status));
+    return body;
+  }
+
+  function showAuth() {
+    $("auth-overlay").classList.add("show");
+    setConn(false, "locked");
+    setTimeout(() => $("auth-input").focus(), 50);
+  }
+  function hideAuth() { $("auth-overlay").classList.remove("show"); }
+
+  $("auth-submit").addEventListener("click", submitAuth);
+  $("auth-input").addEventListener("keydown", (e) => { if (e.key === "Enter") submitAuth(); });
+  async function submitAuth() {
+    sessionStorage.setItem("dash_token", $("auth-input").value);
+    $("auth-err").style.display = "none";
+    try {
+      await loadAll();
+      hideAuth();
+    } catch (err) {
+      if (String(err.message).includes("unauthorized")) {
+        $("auth-err").style.display = "block";
+      } else {
+        hideAuth();
+      }
+    }
+  }
+
+  function setConn(ok, label) {
+    $("conn-dot").classList.toggle("err", !ok);
+    $("conn-label").textContent = label;
+  }
+
+  /* ---------- frontmatter parsing ---------- */
+  function parseFrontmatter(text) {
+    const fm = { title: null, severity: "unknown", status: null, slug: null, date: null };
+    if (!text) return fm;
+    const m = text.match(/^---\r?\n([\s\S]*?)\r?\n---/);
+    if (!m) return fm;
+    for (const line of m[1].split("\n")) {
+      const kv = line.match(/^(\w+):\s*(.*)$/);
+      if (!kv) continue;
+      const key = kv[1].toLowerCase();
+      let val = kv[2].trim().replace(/^["']|["']$/g, "");
+      if (key === "title") fm.title = val;
+      else if (key === "severity") fm.severity = val.toLowerCase();
+      else if (key === "status") fm.status = val.toLowerCase();
+      else if (key === "slug") fm.slug = val;
+      else if (key === "date") fm.date = val;
+    }
+    if (!SEVERITIES.includes(fm.severity)) fm.severity = "unknown";
+    return fm;
+  }
+
+  function parseCost(metrics) {
+    if (!metrics || typeof metrics.cost !== "string") return 0;
+    const n = parseFloat(metrics.cost.replace(/[$,]/g, ""));
+    return Number.isFinite(n) ? n : 0;
+  }
+
+  /* ---------- loading ---------- */
+  async function loadAll() {
+    const [repData, ledData] = await Promise.all([
+      api("/api/reports"),
+      api("/api/ledgers").catch(() => ({ ledgers: [] })),
+    ]);
+    state.reports = repData.reports || [];
+    state.reviewsTracked = repData.reviews_tracked || 0;
+    state.ledgers = ledData.ledgers || [];
+    for (const r of state.reports) r.fm = parseFrontmatter(r.report_head);
+    renderStats();
+    renderFilters();
+    renderList();
+    renderLedgers();
+    setConn(true, "live");
+    $("foot-status").textContent = "read-only · last sync " + new Date().toLocaleTimeString();
+  }
+
+  /* ---------- stats ---------- */
+  function renderStats() {
+    const repos = new Set(state.reports.map((r) => r.repo));
+    const confirmed = state.reports.filter((r) => r.fm.status === "confirmed").length;
+    const cost = state.reports.reduce((sum, r) => sum + parseCost(r.metrics), 0);
+    $("st-reports").textContent = state.reports.length;
+    $("st-confirmed").textContent = confirmed;
+    $("st-repos").textContent = repos.size;
+    $("st-tracked").textContent = state.reviewsTracked;
+    $("st-cost").textContent = cost > 0 ? "$" + cost.toFixed(2) : "–";
+  }
+
+  /* ---------- filters ---------- */
+  function renderFilters() {
+    const repos = [...new Set(state.reports.map((r) => r.repo))].sort();
+    const el = $("filters");
+    el.innerHTML = "";
+    const mk = (label, active, onClick) => {
+      const b = document.createElement("button");
+      b.className = "chip" + (active ? " on" : "");
+      b.textContent = label;
+      b.addEventListener("click", onClick);
+      el.appendChild(b);
+    };
+    mk("all repos", state.repoFilter === null, () => { state.repoFilter = null; renderFilters(); renderList(); });
+    for (const repo of repos) {
+      mk(repo, state.repoFilter === repo, () => {
+        state.repoFilter = state.repoFilter === repo ? null : repo;
+        renderFilters(); renderList();
+      });
+    }
+    mk("all severities", state.sevFilter === null, () => { state.sevFilter = null; renderFilters(); renderList(); });
+    for (const sev of SEVERITIES) {
+      const n = state.reports.filter((r) => r.fm.severity === sev).length;
+      if (n === 0) continue;
+      mk(sev + " · " + n, state.sevFilter === sev, () => {
+        state.sevFilter = state.sevFilter === sev ? null : sev;
+        renderFilters(); renderList();
+      });
+    }
+  }
+
+  $("search").addEventListener("input", (e) => { state.query = e.target.value.toLowerCase(); renderList(); });
+
+  function filtered() {
+    return state.reports.filter((r) => {
+      if (state.repoFilter && r.repo !== state.repoFilter) return false;
+      if (state.sevFilter && r.fm.severity !== state.sevFilter) return false;
+      if (state.query) {
+        const hay = [r.repo, String(r.pr_number), r.fm.title, r.fm.slug, r.head_oid]
+          .filter(Boolean).join(" ").toLowerCase();
+        if (!hay.includes(state.query)) return false;
+      }
+      return true;
+    });
+  }
+
+  /* ---------- list ---------- */
+  function renderList() {
+    const rows = filtered();
+    $("list-count").textContent = rows.length + " / " + state.reports.length;
+    const el = $("report-list");
+    el.innerHTML = "";
+    if (rows.length === 0) {
+      el.innerHTML = '<div class="empty"><span class="glyph">∅</span><p>No findings match</p></div>';
+      return;
+    }
+    for (const r of rows) {
+      const b = document.createElement("button");
+      b.className = "report-item" + (r.id === state.selectedId ? " sel" : "");
+      const title = r.fm.title || "(unparsed report)";
+      const statusBadge = r.fm.status
+        ? '<span class="badge ' + esc(r.fm.status) + '">' + esc(r.fm.status) + "</span>" : "";
+      b.innerHTML =
+        '<div class="ri-top">' +
+          '<span class="badge ' + esc(r.fm.severity) + '">' + esc(r.fm.severity) + "</span>" +
+          statusBadge +
+          '<span class="ri-title">' + esc(title) + "</span>" +
+        "</div>" +
+        '<div class="ri-meta">' +
+          '<span class="repo">' + esc(r.repo) + "</span>" +
+          "<span>PR #" + esc(r.pr_number) + "</span>" +
+          "<span>" + esc(r.created_at) + "</span>" +
+        "</div>";
+      b.addEventListener("click", () => openReport(r.id));
+      el.appendChild(b);
+    }
+  }
+
+  /* ---------- viewer ---------- */
+  async function openReport(id) {
+    state.selectedId = id;
+    if (location.hash !== "#report-" + id) location.hash = "report-" + id;
+    renderList();
+    const r = state.reports.find((x) => x.id === id);
+    $("viewer-empty").style.display = "none";
+    const vc = $("viewer-content");
+    vc.style.display = "flex";
+    $("v-title").textContent = r.fm.title || "Report #" + id;
+    $("v-body").innerHTML = "";
+    $("v-body").className = "report-body raw-pre";
+    $("v-body").textContent = "Decrypting…";
+    $("v-sub").innerHTML =
+      "<span>" + esc(r.repo) + "</span>" +
+      '<a href="https://github.com/' + esc(r.repo) + "/pull/" + esc(r.pr_number) +
+        '" target="_blank" rel="noopener">PR #' + esc(r.pr_number) + " ↗</a>" +
+      "<span>oid " + esc((r.head_oid || "").slice(0, 10)) + "</span>" +
+      "<span>" + esc(r.created_at) + "</span>" +
+      "<span>" + fmtSize(r.report_size) + "</span>";
+    $("v-badges").innerHTML =
+      '<span class="badge ' + esc(r.fm.severity) + '">' + esc(r.fm.severity) + "</span>" +
+      (r.fm.status ? '<span class="badge ' + esc(r.fm.status) + '">' + esc(r.fm.status) + "</span>" : "");
+    renderMetrics(r.metrics);
+    try {
+      const data = await api("/api/reports/" + id);
+      state.selectedText = data.report_text;
+      renderMarkdown(data.report_text);
+    } catch (err) {
+      $("v-body").textContent = "Failed to load report: " + err.message;
+    }
+  }
+
+  function renderMetrics(m) {
+    const el = $("v-metrics");
+    if (!m) { el.innerHTML = '<span class="metric">no metrics recorded</span>'; return; }
+    const item = (k, v) => '<span class="metric">' + k + " <b>" + esc(v || "–") + "</b></span>";
+    el.innerHTML =
+      item("cost", m.cost) +
+      item("input tokens", m.input) +
+      item("output tokens", m.output) +
+      item("cache read", m.cache_read);
+  }
+
+  function renderMarkdown(text) {
+    const body = $("v-body");
+    // Frontmatter is already surfaced in the header/badges — strip it
+    const md = (text || "").replace(/^---\r?\n[\s\S]*?\r?\n---\r?\n?/, "");
+    if (window.marked && window.DOMPurify) {
+      body.className = "report-body";
+      body.innerHTML = window.DOMPurify.sanitize(window.marked.parse(md));
+    } else {
+      body.className = "report-body raw-pre";
+      body.textContent = md || "(empty report)";
+    }
+  }
+
+  function fmtSize(n) {
+    if (!n) return "0 B";
+    if (n < 1024) return n + " B";
+    return (n / 1024).toFixed(1) + " KB";
+  }
+
+  /* ---------- extraction ---------- */
+  $("download-btn").addEventListener("click", () => {
+    if (state.selectedText == null) return;
+    const r = state.reports.find((x) => x.id === state.selectedId);
+    const name =
+      (r ? r.repo.replace("/", "_") + "_pr" + r.pr_number : "report_" + state.selectedId) +
+      (r && r.fm.slug ? "_" + r.fm.slug : "") + ".md";
+    const blob = new Blob([state.selectedText], { type: "text/markdown" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = name;
+    a.click();
+    URL.revokeObjectURL(a.href);
+  });
+
+  /* ---------- ledgers ---------- */
+  function renderLedgers() {
+    const el = $("ledger-content");
+    if (state.ledgers.length === 0) {
+      el.innerHTML = '<div class="empty" style="padding:30px;"><p>No backfill ledgers recorded</p></div>';
+      return;
+    }
+    el.innerHTML = "";
+    for (const l of state.ledgers) {
+      const div = document.createElement("div");
+      div.className = "ledger-block";
+      div.innerHTML =
+        "<h4>" + esc(l.repo) + " <span>updated " + esc(l.updated_at) + "</span></h4>" +
+        "<pre>" + esc(l.ledger_text || "(empty ledger)") + "</pre>";
+      el.appendChild(div);
+    }
+  }
+
+  /* ---------- boot ---------- */
+  $("refresh-btn").addEventListener("click", () => {
+    $("refresh-btn").disabled = true;
+    loadAll().catch((err) => {
+      if (!String(err.message).includes("unauthorized")) setConn(false, "error");
+    }).finally(() => { $("refresh-btn").disabled = false; });
+  });
+
+  loadAll().then(() => {
+    // Deep link: #report-<id> opens that finding directly
+    const m = location.hash.match(/^#report-(\d+)$/);
+    if (m && state.reports.some((r) => r.id === Number(m[1]))) openReport(Number(m[1]));
+  }).catch((err) => {
+    if (String(err.message).includes("unauthorized")) return; // overlay already shown
+    setConn(false, "error");
+    $("report-list").innerHTML =
+      '<div class="empty"><span class="glyph">⚠</span><p>' + esc(err.message) + "</p></div>";
+  });
+})();
+</script>
+</body>
+</html>

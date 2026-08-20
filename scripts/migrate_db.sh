@@ -73,4 +73,21 @@ if [ "$VERSION" -eq 0 ]; then
     echo "Migration 0 -> 1 complete."
 fi
 
+# Re-read the version in case migration 1 just ran on a fresh database
+VERSION=$(execute_sql "SELECT COALESCE(MAX(version), 0) FROM schema_migrations;")
+
+if [ "$VERSION" -lt 2 ]; then
+    echo "Running migration 1 -> 2 (Adding backfill_ledger table)..."
+
+    execute_sql "
+    CREATE TABLE IF NOT EXISTS backfill_ledger (
+        repo TEXT PRIMARY KEY,
+        ledger_text TEXT,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+    INSERT INTO schema_migrations(version) VALUES(2);
+    "
+    echo "Migration 1 -> 2 complete."
+fi
+
 echo "Database initialization complete."

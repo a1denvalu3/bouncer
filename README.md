@@ -61,6 +61,8 @@ Bouncer is configured using environment variables. Create a `.env` file in the p
 - `SKIP_PRS`: A comma-separated list of PRs to explicitly ignore, formatted as `org/repo#pr` (e.g., `myorg/repo1#139,myorg/repo2#42`).
 - `ALLOWED_AUTHOR_ASSOCIATIONS`: A comma-separated list of GitHub author associations allowed to trigger reviews. This acts as a configurable security feature to prevent execution on PRs from unknown users (default: `COLLABORATOR,CONTRIBUTOR,MEMBER,OWNER`).
 - `MAX_WORKER`: Maximum number of PR reviews to run concurrently per cycle. `0` (default) means unlimited — every eligible PR is launched in parallel. When set to a positive integer, the review loop blocks until a slot frees up before launching another review, capping resource usage on hosts with limited CPU/memory.
+- `FINDINGS_BUDGET`: Maximum number of entries kept in the carry-forward findings ledger used by backfill mode (default: `10`). When exceeded, the least important findings (lowest severity, `theoretical` before `confirmed`, oldest first) are evicted.
+- `BACKFILL_ENFORCE_AUTHOR`: Set to `1` to apply the `ALLOWED_AUTHOR_ASSOCIATIONS` filter in backfill mode. Backfill skips this filter by default because it reviews maintainer-merged historical PRs, whose authors often show a `NONE` association today.
 
 ## Usage
 
@@ -85,6 +87,20 @@ You can run an isolated review on a specific PR without waiting for or affecting
 ```bash
 docker compose run --rm bouncer /app/scripts/review_pr.sh myorg/myrepo 42
 ```
+
+### Historical Backfill Mode (Chained Whole-Repo Scan)
+Backfill mode scans a whole repository by reviewing every **merged** PR sequentially, from the beginning of its history (or a start point in the past) up to the latest merged PR. Each review runs in the same isolated `systemd-nspawn` sandbox as continuous mode, but reviews are **chained**: a findings ledger is carried forward from one PR to the next, so the agent knows which vulnerabilities were already discovered, avoids duplicates, and notices when a later PR fixes an earlier finding. The ledger is bounded by `FINDINGS_BUDGET` — when it grows past the budget, the least important findings are evicted.
+
+```bash
+# Scan every merged PR from the beginning of the repo's history
+docker compose run --rm bouncer /app/scripts/backfill.sh myorg/myrepo
+
+# Scan a range — bounds accept a PR number or a date (YYYY-MM-DD)
+docker compose run --rm bouncer /app/scripts/backfill.sh myorg/myrepo 100 500
+docker compose run --rm bouncer /app/scripts/backfill.sh myorg/myrepo 2023-01-01
+```
+
+Backfill is **resumable**: reviewed PRs are recorded in the encrypted database, so re-running the same command after an interruption continues where it stopped. Reports and metrics are ingested into the database exactly as in continuous mode, and confirmed PoC-backed findings are still submitted as PRs to `REPORT_REPO`. Note that a full-history scan is a long, cost-intensive operation — narrow the range or lower the budget as needed.
 
 ## Logs and Output
 

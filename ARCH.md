@@ -106,4 +106,4 @@ Bouncer solves this by provisioning a dedicated virtual bridge network structure
 5. **Sandbox Init**: Starts the `systemd-nspawn` container using a unique machine name to avoid collision.
 6. **Execution**: The AI runs for up to `REVIEW_TIMEOUT`. Tests hypotheses and scripts PoCs.
 7. **Cleanup**: Container is destroyed (discarding the volatile overlay).
-8. **Report**: If a vulnerability report was generated, `bouncer` submits it as a new Pull Request to the private `REPORT_REPO`. Metric files are stored safely in `/out`.
+8. **Report**: If a vulnerability report was generated, `bouncer` submits it as a new Pull Request to the private `REPORT_REPO`. When `REPORT_REPO` is unset, the agents are instructed (via `templates/submission/local.txt` instead of `remote.txt`) to keep findings local: the report is ingested only into the encrypted database and no remote PRs, pushes, or comments are made. Metric files are stored safely in `/out`.

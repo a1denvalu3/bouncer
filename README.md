@@ -53,7 +53,7 @@ Bouncer is configured using environment variables. Create a `.env` file in the p
 - `DB_PASSPHRASE`: A strong passphrase to encrypt the local SQLite (SQLCipher) database containing PR state tracking and generated vulnerability reports. This is strictly required and does not have a default.
 
 ### Optional Variables
-- `REPORT_REPO`: The private repository where security findings will be submitted as PRs (default: `myorg/security-audits`).
+- `REPORT_REPO`: The private repository where security findings will be submitted as PRs. **Optional** — when unset or empty, Bouncer runs in **local-only reporting mode**: all findings (including confirmed, PoC-backed ones) are stored only in the encrypted local database, and the AI agents are explicitly instructed not to open PRs, push branches, or comment anywhere. (If you use `docker-compose.yml`, remove or empty the `REPORT_REPO` line there for local-only mode.)
 - `OPENCODE_MODEL`: The AI model to use (default: `openrouter/google/gemini-3.1-pro-preview`).
 - `SLEEP_DURATION`: Time in seconds to sleep between review cycles (default: `60`).
 - `REVIEW_TIMEOUT`: Maximum execution time for a single PR review before it is forcibly killed. Accepts standard `timeout` command formats like "6h", "30m" (default: `30m`).
@@ -100,7 +100,7 @@ docker compose run --rm bouncer /app/scripts/backfill.sh myorg/myrepo 100 500
 docker compose run --rm bouncer /app/scripts/backfill.sh myorg/myrepo 2023-01-01
 ```
 
-Backfill is **resumable**: reviewed PRs are recorded in the encrypted database, so re-running the same command after an interruption continues where it stopped. Reports and metrics are ingested into the database exactly as in continuous mode, and confirmed PoC-backed findings are still submitted as PRs to `REPORT_REPO`. Note that a full-history scan is a long, cost-intensive operation — narrow the range or lower the budget as needed.
+Backfill is **resumable**: reviewed PRs are recorded in the encrypted database, so re-running the same command after an interruption continues where it stopped. Reports and metrics are ingested into the database exactly as in continuous mode, and confirmed PoC-backed findings are submitted as PRs to `REPORT_REPO` when it is configured (otherwise they stay local-only). Note that a full-history scan is a long, cost-intensive operation — narrow the range or lower the budget as needed.
 
 ## Logs and Output
 

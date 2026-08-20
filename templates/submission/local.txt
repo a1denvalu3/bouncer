@@ -1,0 +1,8 @@
+## Phase 1 — Local Reporting Only (REMOTE SUBMISSION DISABLED)
+This system is running in LOCAL reporting mode: no remote security-audits repository is configured. You MUST NOT open pull requests, push branches, comment on, or otherwise interact with any remote repository. All findings stay local.
+
+If you have a CONFIRMED vulnerability based on your verification in Phase 0:
+1. Ensure the final, verified finding is written to `${PR_REPORT}` strictly following the YAML frontmatter and report template below (with `status: confirmed`).
+2. CRITICAL: Do NOT delete the original `${PR_REPORT}` file after finalizing it. The orchestrator ingests it into the local encrypted database, which is the ONLY destination for findings in this mode. ONLY delete it if the vulnerability is disproven or rejected.
+
+The same applies to `status: theoretical` findings: keep them in `${PR_REPORT}` for local ingestion instead of deleting the file, since local reporting is the only record of the analysis.

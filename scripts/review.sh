@@ -12,9 +12,19 @@ if [ -z "$REPOS" ] && [ -n "$REPO_NAME" ]; then
     REPOS="$REPO_NAME"
 fi
 
-if [ -z "$REPOS" ] || [ -z "$GITHUB_TOKEN" ] || [ -z "$REPORT_REPO" ]; then
-    echo "ERROR: REPOS (or REPO_NAME), GITHUB_TOKEN, and REPORT_REPO must be set."
+if [ -z "$REPOS" ] || [ -z "$GITHUB_TOKEN" ]; then
+    echo "ERROR: REPOS (or REPO_NAME) and GITHUB_TOKEN must be set."
     exit 1
+fi
+
+# REPORT_REPO is optional: when unset, findings are only stored in the local
+# encrypted database and no report PRs are opened (local-only reporting mode).
+if [ -n "$REPORT_REPO" ]; then
+    SUBMISSION_SNIPPET="/app/templates/submission/remote.txt"
+    echo "Reporting mode: remote (findings PRs go to $REPORT_REPO)"
+else
+    SUBMISSION_SNIPPET="/app/templates/submission/local.txt"
+    echo "Reporting mode: local (REPORT_REPO unset — findings stay in the encrypted database)"
 fi
 
 if [ -z "$OPENROUTER_API_KEY" ] && [ -z "$OPENAI_API_KEY" ] && [ -z "$ANTHROPIC_API_KEY" ] && [ -z "$GOOGLE_API_KEY" ]; then
@@ -153,6 +163,10 @@ for CURRENT_REPO in $(echo "$REPOS" | tr ',' ' ' | tr '\n' ' '); do
             
             # Export variables used in the prompt template
             export CURRENT_REPO PR_REPORT PR_METRICS REPORT_REPO PR HEAD_REF_NAME BASE_REF_NAME PR_WORKSPACE
+
+            # Render the submission phase (remote PRs vs local-only) for the prompt templates
+            PR_SUBMISSION_PHASE=$(envsubst < "$SUBMISSION_SNIPPET")
+            export PR_SUBMISSION_PHASE
 
             # Prepare runner for systemd-nspawn
             envsubst < /app/templates/discovery/discovery_template.txt > "$PR_WORKSPACE/.opencode_discovery_prompt"

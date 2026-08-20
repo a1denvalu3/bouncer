@@ -75,6 +75,8 @@ BUDGET: The ledger MUST contain at most ${FINDINGS_BUDGET} entries. If it exceed
 1. Lowest severity first (info before low, low before medium, etc.).
 2. Within the same severity, `status: theoretical` before `status: confirmed`.
 3. Within the same severity and status, the oldest finding (lowest PR number) first.
+
+${PR_RESOLUTION_PHASE}
 </phases>
 
 <methodology>

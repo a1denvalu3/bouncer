@@ -102,7 +102,7 @@ docker compose run --rm bouncer /app/scripts/backfill.sh myorg/myrepo 100 500
 docker compose run --rm bouncer /app/scripts/backfill.sh myorg/myrepo 2023-01-01
 ```
 
-Backfill is **resumable**: reviewed PRs are recorded in the encrypted database, so re-running the same command after an interruption continues where it stopped. Reports and metrics are ingested into the database exactly as in continuous mode, and confirmed PoC-backed findings are submitted as PRs to `REPORT_REPO` when it is configured (otherwise they stay local-only). Note that a full-history scan is a long, cost-intensive operation — narrow the range or lower the budget as needed.
+Backfill is **resumable**: reviewed PRs are recorded in the encrypted database, so re-running the same command after an interruption continues where it stopped. Reports and metrics are ingested into the database exactly as in continuous mode, and confirmed PoC-backed findings are submitted as PRs to `REPORT_REPO` when it is configured (otherwise they stay local-only). When a later PR fixes, invalidates, or disproves a finding whose report was already submitted, the verifier closes the now-stale report PR in `REPORT_REPO` with a comment referencing the resolving PR (remote mode only; entries dropped by budget eviction are left alone, since those findings still stand). Note that a full-history scan is a long, cost-intensive operation — narrow the range or lower the budget as needed.
 
 ## Logs and Output
 

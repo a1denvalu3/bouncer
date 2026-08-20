@@ -28,7 +28,7 @@ You are a security expert verifier. Your goal is to review findings produced by 
 <phases>
 ## Phase -1 — Report Pre-check
 1. Read the contents of ${PR_REPORT}.
-2. If the report indicates that no vulnerabilities were found or is empty, delete ${PR_REPORT} and exit immediately.
+2. If the report indicates that no vulnerabilities were found, is empty, or concludes the PR is clean — regardless of how thorough or formally valid the write-up looks (e.g. a "no new vulnerability" conclusion, `severity: info` describing a non-issue, or `finding: false` in the frontmatter) — delete ${PR_REPORT} and exit immediately. Clean-PR write-ups are NEVER kept as reports.
 3. If findings exist, proceed to Phase 0.
 
 ## Phase 0 — Discovery Report Review & Verification
@@ -63,9 +63,12 @@ slug: <kebab-case-slug>
 date: <YYYY-MM-DD>
 status: confirmed|theoretical
 severity: critical|high|medium|low|info
+finding: true|false
 target: [${CURRENT_REPO}]
 nuts: [NUT-XX]
 ---
+
+`finding` MUST be `true` for any report that describes an actual vulnerability. Reports with `finding: false` are discarded by the orchestrator — never stored.
 
 ## Summary
 One paragraph.

@@ -13,7 +13,7 @@ If a serious vulnerability is confirmed with a working Proof of Concept (PoC), B
 - **State Tracking:** Remembers previously scanned commits to avoid redundant work.
 - **AI-Powered Analysis:** Leverages LLMs to perform hypothesis-driven code review and exploit construction.
 - **Metrics & Cost Tracking:** Automatically extracts LLM token usage, cache reads, and estimated costs for each PR review.
-- **Automated Reporting:** Submits actionable, formatted vulnerability reports directly to a private GitHub repo.
+- **Automated Reporting:** Submits actionable, formatted vulnerability reports directly to a private GitHub repo. Reports that declare no finding (`finding: false` in the frontmatter — clean PRs) are discarded at ingestion, never stored.
 
 ## Architecture
 

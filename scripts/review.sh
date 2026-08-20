@@ -209,12 +209,17 @@ for CURRENT_REPO in $(echo "$REPOS" | tr ',' ' ' | tr '\n' ' '); do
                 fi
             fi
 
-            # Ingest report and metrics securely into the encrypted SQL database
+            # Ingest report and metrics securely into the encrypted SQL database.
+            # Reports declaring `finding: false` (clean PRs) are discarded, not stored.
             if [ -f "$PR_REPORT" ]; then
-                execute_sql_insert_file "$CURRENT_REPO" "$PR" "$HEAD_OID" "$PR_REPORT" "$PR_METRICS"
-                echo "✅ Report and metrics for PR #$PR securely saved to encrypted database."
-                
-                # Cleanup the flat files from the volume after successful database ingestion
+                if report_has_finding "$PR_REPORT"; then
+                    execute_sql_insert_file "$CURRENT_REPO" "$PR" "$HEAD_OID" "$PR_REPORT" "$PR_METRICS"
+                    echo "✅ Report and metrics for PR #$PR securely saved to encrypted database."
+                else
+                    echo "ℹ️ Report for PR #$PR declares no finding (finding: false) — discarding."
+                fi
+
+                # Cleanup the flat files from the volume after handling
                 rm -f "$PR_REPORT" "$PR_METRICS"
             else
                 echo "⚠️ No report was generated for PR #$PR by opencode."

@@ -38,9 +38,10 @@ RUN curl -sSL https://install.python-poetry.org | python3 - \
 # Install opencode via NPM
 RUN npm install -g opencode-ai
 
-# Copy our application scripts and templates
+# Copy our application scripts, templates, and the report dashboard
 COPY scripts /app/scripts
 COPY templates /app/templates
+COPY dashboard /app/dashboard
 RUN chmod +x /app/scripts/*.sh
 
 # Copy the entire filesystem to /nspawn-root for the ephemeral nspawn containers

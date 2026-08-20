@@ -31,3 +31,20 @@ services:
       # Maps the local ./out folder to /out inside the container for permanent storage
       - ./out:/out
     restart: unless-stopped
+
+  dashboard:
+    build: .
+    container_name: bouncer-dashboard
+    command: python3 /app/dashboard/app.py
+    entrypoint: []
+    environment:
+      # Same SQLCipher key as the bouncer service (Required)
+      - DB_PASSPHRASE=${DB_PASSPHRASE}
+      # Optional bearer token to protect the dashboard (reports are sensitive)
+      - DASHBOARD_TOKEN=${DASHBOARD_TOKEN:-}
+    volumes:
+      # Read access to the encrypted database
+      - ./out:/out
+    ports:
+      - "${DASHBOARD_PORT:-5001}:5001"
+    restart: unless-stopped

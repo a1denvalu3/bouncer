@@ -90,4 +90,19 @@ if [ "$VERSION" -lt 2 ]; then
     echo "Migration 1 -> 2 complete."
 fi
 
+# Re-read the version in case migration 2 just ran on a fresh database
+VERSION=$(execute_sql "SELECT COALESCE(MAX(version), 0) FROM schema_migrations;")
+
+if [ "$VERSION" -lt 3 ]; then
+    echo "Running migration 2 -> 3 (Adding resolution tracking to pr_reports)..."
+
+    execute_sql "
+    ALTER TABLE pr_reports ADD COLUMN resolved_by_pr INTEGER;
+    ALTER TABLE pr_reports ADD COLUMN resolved_reason TEXT;
+    ALTER TABLE pr_reports ADD COLUMN resolved_at DATETIME;
+    INSERT INTO schema_migrations(version) VALUES(3);
+    "
+    echo "Migration 2 -> 3 complete."
+fi
+
 echo "Database initialization complete."

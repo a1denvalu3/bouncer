@@ -247,11 +247,16 @@ while read -r row; do
 
         PR_REPORT="/tmp/report_${SAFE_REPO_NAME}-${PR}.txt"
         PR_METRICS="/tmp/metrics_${SAFE_REPO_NAME}_${PR}.json"
+        # Fresh resolutions file for this review: the verifier records earlier
+        # findings that THIS PR fixes/invalidates/disproves, one per line as
+        # "<original_pr>|<reason>" (never for budget evictions).
+        PR_RESOLUTIONS="/tmp/resolutions_${SAFE_REPO_NAME}_${PR}.txt"
+        rm -f "$PR_RESOLUTIONS"
         FINDINGS_LEDGER="$LEDGER_FILE"
         FINDINGS_CONTEXT=$(cat "$LEDGER_FILE")
 
         # Export variables used in the prompt templates
-        export CURRENT_REPO PR_REPORT PR_METRICS REPORT_REPO PR HEAD_REF_NAME BASE_REF_NAME PR_WORKSPACE
+        export CURRENT_REPO PR_REPORT PR_METRICS PR_RESOLUTIONS REPORT_REPO PR HEAD_REF_NAME BASE_REF_NAME PR_WORKSPACE
         export FINDINGS_LEDGER FINDINGS_CONTEXT FINDINGS_BUDGET
 
         # Render the submission phase (remote PRs vs local-only) for the prompt templates
@@ -299,6 +304,7 @@ while read -r row; do
             -E OPENCODE_MODEL="$OPENCODE_MODEL" \
             -E PR_METRICS="$PR_METRICS" \
             -E PR_REPORT="$PR_REPORT" \
+            -E PR_RESOLUTIONS="$PR_RESOLUTIONS" \
             -E FINDINGS_LEDGER="$FINDINGS_LEDGER" \
             /bin/bash -c "cd $PR_WORKSPACE && ./.opencode_runner.sh" > "/out/nspawn_${SAFE_REPO_NAME}_${PR}.log" 2>&1; then
 
@@ -324,6 +330,19 @@ while read -r row; do
         # Persist the carry-forward findings ledger (the agent maintains the file in /tmp)
         if [ -f "$LEDGER_FILE" ]; then
             put_ledger "$CURRENT_REPO" "$LEDGER_FILE"
+        fi
+
+        # Mark earlier reports as resolved when this PR fixed/disproved their findings
+        if [ -s "$PR_RESOLUTIONS" ]; then
+            while IFS='|' read -r ORIG_PR RES_REASON; do
+                ORIG_PR=$(echo "$ORIG_PR" | tr -d '[:space:]')
+                RES_REASON=$(echo "$RES_REASON" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+                if [[ "$ORIG_PR" =~ ^[0-9]+$ ]] && [ -n "$RES_REASON" ]; then
+                    mark_report_resolved "$CURRENT_REPO" "$ORIG_PR" "$PR" "$RES_REASON"
+                    echo "🔖 Marked reports for PR #$ORIG_PR as resolved by PR #$PR."
+                fi
+            done < "$PR_RESOLUTIONS"
+            rm -f "$PR_RESOLUTIONS"
         fi
 
         # Update the PR state in the database using the unified helper

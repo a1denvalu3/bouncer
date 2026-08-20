@@ -75,6 +75,21 @@ execute_sql_insert_file() {
     execute_sql "$sql"
 }
 
+# Returns 0 when the report file declares an actual finding.
+# Reports whose YAML frontmatter sets `finding: false` are clean-PR
+# write-ups (no vulnerability identified) and must NOT be ingested.
+# A missing field is treated as a finding for backwards compatibility
+# with reports written before the field existed.
+report_has_finding() {
+    local report_file="$1"
+    # Inspect only the frontmatter block (between the first two --- lines)
+    if awk '/^---[[:space:]]*$/{c++; next} c==1' "$report_file" | \
+        grep -qiE '^finding:[[:space:]]*["'"'"']?false["'"'"']?[[:space:]]*$'; then
+        return 1
+    fi
+    return 0
+}
+
 # Mark all unresolved reports for a given PR as resolved by a later PR.
 # The reason text uses the same hex/CAST pattern as report ingestion so
 # arbitrary agent-written text cannot break the SQL.

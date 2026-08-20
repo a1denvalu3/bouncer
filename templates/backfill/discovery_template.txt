@@ -15,7 +15,7 @@ ${FINDINGS_CONTEXT}
 
 Rules for using prior findings:
 - Do NOT re-report a root cause that is already recorded in the ledger, unless this PR meaningfully changes it (e.g., worsens it, or your new analysis changes its severity/status).
-- If this PR FIXES or otherwise invalidates a prior finding, update the ledger (see "Ledger Maintenance" below) and note the invalidation in your report.
+- If this PR FIXES or otherwise invalidates a prior finding, update the ledger (see "Ledger Maintenance" below) and record the resolution in ${PR_RESOLUTIONS}. Do NOT write a report merely to document an invalidation — the ledger and resolutions file are the channel for that.
 - Use prior findings as context: a pattern seen before (e.g., a recurring missing check) is a strong hypothesis for this PR.
 </prior_findings>
 
@@ -24,6 +24,7 @@ Rules for using prior findings:
 
 **Task:** Find and confirm the most serious vulnerability introduced in this PR. Write the final report to the absolute path: ${PR_REPORT}. Do NOT EVER comment on the original public PR. Focus area: HIGH severity issues.
 Ensure you write to the EXACT path provided in ${PR_REPORT}. Do not prepend relative path components like "../" and DO NOT CHANGE THE FILENAME.
+ONLY write ${PR_REPORT} when this PR introduces an actual vulnerability. If you conclude the PR is clean, do NOT create the file at all — clean-PR analyses are not reports and are never stored. If you already started writing one and then ruled the finding out, delete the file or set `finding: false` in the frontmatter (the orchestrator discards such reports).
 </role>
 
 <critical_constraint>
@@ -115,9 +116,12 @@ slug: <kebab-case-slug>
 date: <YYYY-MM-DD>
 status: confirmed|theoretical
 severity: critical|high|medium|low|info
+finding: true|false
 target: [${CURRENT_REPO}]
 nuts: [NUT-XX]
 ---
+
+`finding` MUST be `true` for any report that describes an actual vulnerability. Reports with `finding: false` are discarded by the orchestrator — never stored.
 
 ## Summary
 One paragraph.

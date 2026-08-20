@@ -9,7 +9,11 @@ decoded here, so arbitrary report content can never corrupt the output
 framing.
 
 Environment:
-  DB_PASSPHRASE   (required) SQLCipher key for the database
+  DB_PASSPHRASE   optional SQLCipher key for the database. When set, the
+                  vault is unlocked for all visitors. When unset, the UI
+                  prompts each visitor for the passphrase on connect and the
+                  browser sends it per request via the X-DB-Passphrase
+                  header; it is never stored server-side.
   DB_PATH         path to bouncer.db          (default: /out/bouncer.db)
   DASHBOARD_PORT  port to listen on           (default: 5001)
   DASHBOARD_HOST  interface to bind           (default: 0.0.0.0)
@@ -38,7 +42,7 @@ class DatabaseError(Exception):
     pass
 
 
-def run_sql(query):
+def run_sql(query, passphrase):
     """Run a read-only query against the encrypted DB and return stdout.
 
     The database may be in SQLCipher 3.x format (created by older Bouncer
@@ -47,11 +51,11 @@ def run_sql(query):
     mode is enabled, so on that specific error we retry with
     cipher_compatibility = 3 (the pragma must come *after* PRAGMA key).
     """
-    if not PASSPHRASE:
-        raise DatabaseError("DB_PASSPHRASE is not set")
+    if not passphrase:
+        raise DatabaseError("no database passphrase provided")
     if not os.path.isfile(DB_PATH):
         raise DatabaseError(f"database not found at {DB_PATH}")
-    key = PASSPHRASE.replace("'", "''")
+    key = passphrase.replace("'", "''")
     attempts = [
         [f"PRAGMA key = '{key}';"],
         [f"PRAGMA key = '{key}';", "PRAGMA cipher_compatibility = 3;"],
@@ -81,13 +85,14 @@ def unhex(value):
         return ""
 
 
-def fetch_reports():
+def fetch_reports(passphrase):
     """All report rows, newest first. report_text itself is not included."""
     out = run_sql(
         "SELECT id, hex(repo), pr_number, hex(COALESCE(head_oid, '')), "
         "created_at, hex(COALESCE(metrics_json, '')), length(report_text), "
         "hex(substr(COALESCE(report_text, ''), 1, 1024)) "
-        "FROM pr_reports ORDER BY created_at DESC, id DESC;"
+        "FROM pr_reports ORDER BY created_at DESC, id DESC;",
+        passphrase,
     )
     reports = []
     for line in out.splitlines():
@@ -118,10 +123,11 @@ def fetch_reports():
     return reports
 
 
-def fetch_report(report_id):
+def fetch_report(report_id, passphrase):
     out = run_sql(
         f"SELECT hex(COALESCE(report_text, '')) FROM pr_reports "
-        f"WHERE id = {int(report_id)};"
+        f"WHERE id = {int(report_id)};",
+        passphrase,
     )
     for line in out.splitlines():
         if line == "ok" or not line.strip():
@@ -130,10 +136,11 @@ def fetch_report(report_id):
     return None
 
 
-def fetch_ledgers():
+def fetch_ledgers(passphrase):
     out = run_sql(
         "SELECT hex(repo), hex(COALESCE(ledger_text, '')), updated_at "
-        "FROM backfill_ledger ORDER BY repo;"
+        "FROM backfill_ledger ORDER BY repo;",
+        passphrase,
     )
     ledgers = []
     for line in out.splitlines():
@@ -151,8 +158,8 @@ def fetch_ledgers():
     return ledgers
 
 
-def fetch_review_count():
-    out = run_sql("SELECT count(*) FROM pr_reviews;")
+def fetch_review_count(passphrase):
+    out = run_sql("SELECT count(*) FROM pr_reviews;", passphrase)
     for line in out.splitlines():
         if line == "ok" or not line.strip():
             continue
@@ -175,6 +182,11 @@ class DashboardHandler(BaseHTTPRequestHandler):
             return True
         return self.headers.get("Authorization") == f"Bearer {TOKEN}"
 
+    def _passphrase(self):
+        """Per-request vault key: visitor-supplied header wins, else the
+        boot-time DB_PASSPHRASE fallback."""
+        return self.headers.get("X-DB-Passphrase") or PASSPHRASE
+
     def _send_json(self, payload, status=200):
         body = json.dumps(payload).encode("utf-8")
         self.send_response(status)
@@ -190,9 +202,10 @@ class DashboardHandler(BaseHTTPRequestHandler):
     def do_GET(self):
         path = urlparse(self.path).path.rstrip("/") or "/"
 
-        # The page itself is public so the browser can render the token
-        # prompt; every /api/* route stays behind DASHBOARD_TOKEN.
-        if path != "/" and not self._authorized():
+        # The page and the health probe are public so the browser can render
+        # the unlock prompt and learn what credentials to ask for; all data
+        # routes stay behind DASHBOARD_TOKEN when it is set.
+        if path not in ("/", "/api/health") and not self._authorized():
             self._send_error_json("unauthorized", 401)
             return
 
@@ -200,28 +213,48 @@ class DashboardHandler(BaseHTTPRequestHandler):
             if path == "/":
                 self._serve_index()
             elif path == "/api/health":
-                self._send_json({"ok": True, "auth": bool(TOKEN)})
-            elif path == "/api/reports":
                 self._send_json({
-                    "reports": fetch_reports(),
-                    "reviews_tracked": fetch_review_count(),
+                    "ok": True,
+                    "auth": bool(TOKEN),
+                    "passphrase_required": not PASSPHRASE,
+                })
+            elif path == "/api/reports":
+                passphrase = self._passphrase()
+                if not passphrase:
+                    self._send_error_json("passphrase_required", 428)
+                    return
+                self._send_json({
+                    "reports": fetch_reports(passphrase),
+                    "reviews_tracked": fetch_review_count(passphrase),
                 })
             elif path.startswith("/api/reports/"):
                 report_id = path.rsplit("/", 1)[-1]
                 if not report_id.isdigit():
                     self._send_error_json("invalid report id", 400)
                     return
-                text = fetch_report(int(report_id))
+                passphrase = self._passphrase()
+                if not passphrase:
+                    self._send_error_json("passphrase_required", 428)
+                    return
+                text = fetch_report(int(report_id), passphrase)
                 if text is None:
                     self._send_error_json("report not found", 404)
                     return
                 self._send_json({"id": int(report_id), "report_text": text})
             elif path == "/api/ledgers":
-                self._send_json({"ledgers": fetch_ledgers()})
+                passphrase = self._passphrase()
+                if not passphrase:
+                    self._send_error_json("passphrase_required", 428)
+                    return
+                self._send_json({"ledgers": fetch_ledgers(passphrase)})
             else:
                 self._send_error_json("not found", 404)
         except DatabaseError as exc:
-            self._send_error_json(str(exc), 503)
+            # A decryption failure means the supplied passphrase was wrong
+            if "file is not a database" in str(exc):
+                self._send_error_json("bad_passphrase", 401)
+            else:
+                self._send_error_json(str(exc), 503)
         except subprocess.TimeoutExpired:
             self._send_error_json("database query timed out", 504)
 
@@ -242,11 +275,13 @@ class DashboardHandler(BaseHTTPRequestHandler):
 
 
 def main():
-    if not PASSPHRASE:
-        print("ERROR: DB_PASSPHRASE environment variable is not set.", file=sys.stderr)
-        sys.exit(1)
     server = ThreadingHTTPServer((HOST, PORT), DashboardHandler)
     print(f"Bouncer dashboard listening on http://{HOST}:{PORT} (db: {DB_PATH})")
+    if PASSPHRASE:
+        print("Vault unlocked at boot via DB_PASSPHRASE — visitors are not prompted.")
+    else:
+        print("DB_PASSPHRASE not set — visitors will be prompted for the "
+              "database passphrase on connect.")
     if not TOKEN:
         print("WARNING: DASHBOARD_TOKEN is not set — the dashboard is "
               "unauthenticated. Reports may contain sensitive findings.",

@@ -1,0 +1,7 @@
+## Phase 3 — Resolution Feedback (REMOTE MODE)
+Compare the final ledger you produced in Phase 2 against the <prior_findings> you received at the start of this review. For every ledger entry that was REMOVED because THIS PR fixes, invalidates, or disproves that finding — but NOT entries removed solely due to budget eviction (those findings still stand):
+1. Find the corresponding open report PR in ${REPORT_REPO} (its title contains the ORIGINAL PR reference from the removed ledger entry):
+   `gh pr list -R ${REPORT_REPO} --search "[${CURRENT_REPO}#<ORIGINAL_PR>] in:title" --state open --json number`
+2. For each open report PR found, close it with an explanation that references the resolving PR:
+   `gh pr close <REPORT_PR_NUMBER> -R ${REPORT_REPO} --comment "This finding is resolved by ${CURRENT_REPO} PR #${PR} (https://github.com/${CURRENT_REPO}/pull/${PR}): <one sentence — fixed / invalidated / disproven on re-examination>."`
+3. If no open report PR exists for a removed entry, do nothing.

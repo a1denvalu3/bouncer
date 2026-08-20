@@ -258,6 +258,16 @@ while read -r row; do
         PR_SUBMISSION_PHASE=$(envsubst < "$SUBMISSION_SNIPPET")
         export PR_SUBMISSION_PHASE
 
+        # Resolution feedback only makes sense in remote mode: it closes stale
+        # report PRs in REPORT_REPO when a later PR fixes/disproves a finding.
+        # In local-only mode there are no report PRs, so the phase is empty.
+        if [ -n "$REPORT_REPO" ]; then
+            PR_RESOLUTION_PHASE=$(envsubst < /app/templates/submission/resolution.txt)
+        else
+            PR_RESOLUTION_PHASE=""
+        fi
+        export PR_RESOLUTION_PHASE
+
         # Prepare runner for systemd-nspawn (same filenames the shared runner expects)
         envsubst < /app/templates/backfill/discovery_template.txt > "$PR_WORKSPACE/.opencode_discovery_prompt"
         envsubst < /app/templates/backfill/verifier_template.txt > "$PR_WORKSPACE/.opencode_verifier_prompt"

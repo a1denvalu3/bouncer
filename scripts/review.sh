@@ -160,6 +160,8 @@ for CURRENT_REPO in $(echo "$REPOS" | tr ',' ' ' | tr '\n' ' '); do
             
             PR_REPORT="/tmp/report_${SAFE_REPO_NAME}-${PR}.txt"
             PR_METRICS="/tmp/metrics_${SAFE_REPO_NAME}_${PR}.json"
+            # Never allow output left by an interrupted earlier run to be ingested.
+            rm -f "$PR_REPORT" "$PR_METRICS"
             
             # Export variables used in the prompt template
             export CURRENT_REPO PR_REPORT PR_METRICS REPORT_REPO PR HEAD_REF_NAME BASE_REF_NAME PR_WORKSPACE
@@ -182,7 +184,7 @@ for CURRENT_REPO in $(echo "$REPOS" | tr ',' ' ' | tr '\n' ' '); do
             fi
 
             # Run the bot in its own ephemeral nspawn container using overlayfs
-            if ! timeout -k 5m "$REVIEW_TIMEOUT" systemd-nspawn --quiet --keep-unit --register=no \
+            timeout -k 5m "$REVIEW_TIMEOUT" systemd-nspawn --quiet --keep-unit --register=no \
                 --machine="$MACHINE_NAME" \
                 --volatile=overlay \
                 -D /nspawn-root \
@@ -199,14 +201,18 @@ for CURRENT_REPO in $(echo "$REPOS" | tr ',' ' ' | tr '\n' ' '); do
                 -E OPENCODE_MODEL="$OPENCODE_MODEL" \
                 -E PR_METRICS="$PR_METRICS" \
                 -E PR_REPORT="$PR_REPORT" \
-                /bin/bash -c "cd $PR_WORKSPACE && ./.opencode_runner.sh" > "/out/nspawn_${SAFE_REPO_NAME}_${PR}.log" 2>&1; then
-                
-                EXIT_CODE=$?
+                /bin/bash -c "cd $PR_WORKSPACE && ./.opencode_runner.sh" > "/out/nspawn_${SAFE_REPO_NAME}_${PR}.log" 2>&1
+            EXIT_CODE=$?
+            if [ "$EXIT_CODE" -ne 0 ]; then
                 if [ $EXIT_CODE -eq 124 ] || [ $EXIT_CODE -eq 137 ]; then
                     echo "⚠️ Review for PR #$PR in $CURRENT_REPO timed out after $REVIEW_TIMEOUT."
                 else
                     echo "⚠️ Review for PR #$PR in $CURRENT_REPO failed with exit code $EXIT_CODE."
                 fi
+                rm -f "$PR_REPORT" "$PR_METRICS"
+                cd /app
+                rm -rf "$PR_WORKSPACE"
+                exit "$EXIT_CODE"
             fi
 
             # Ingest report and metrics securely into the encrypted SQL database.

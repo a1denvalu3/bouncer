@@ -201,25 +201,25 @@ while read -r row; do
         exec 8> "$LOCK_FILE"
         if ! flock -n 8; then
             echo "Skipping PR #$PR - Already being processed by another session."
-            exit 2
+            exit 200
         fi
 
         if [ -n "$SKIP_PRS" ] && echo "$SKIP_PRS" | tr ',' '\n' | tr -d ' ' | grep -qx "${CURRENT_REPO}#${PR}"; then
             echo "Skipping PR #$PR - Excluded by SKIP_PRS configuration."
-            exit 2
+            exit 200
         fi
 
         LAST_OID=$(execute_sql "SELECT head_oid FROM pr_reviews WHERE repo='${CURRENT_REPO}' AND pr_number=${PR};")
         if [ -n "$LAST_OID" ]; then
             echo "Skipping PR #$PR - Already reviewed (Hash: $LAST_OID)."
-            exit 2
+            exit 200
         fi
 
         if [ "$BACKFILL_ENFORCE_AUTHOR" == "1" ]; then
             AUTHOR_ASSOCIATION=$(gh api "repos/${CURRENT_REPO}/pulls/${PR}" --jq '.author_association' 2>/dev/null)
             if ! echo "$ALLOWED_AUTHOR_ASSOCIATIONS" | tr ',' '\n' | grep -ixq "$AUTHOR_ASSOCIATION"; then
                 echo "Skipping PR #$PR - Author association ($AUTHOR_ASSOCIATION) not in ALLOWED_AUTHOR_ASSOCIATIONS."
-                exit 2
+                exit 200
             fi
         fi
 
@@ -251,7 +251,8 @@ while read -r row; do
         # findings that THIS PR fixes/invalidates/disproves, one per line as
         # "<original_pr>|<reason>" (never for budget evictions).
         PR_RESOLUTIONS="/tmp/resolutions_${SAFE_REPO_NAME}_${PR}.txt"
-        rm -f "$PR_RESOLUTIONS"
+        # Never allow output left by an interrupted earlier run to be ingested.
+        rm -f "$PR_REPORT" "$PR_METRICS" "$PR_RESOLUTIONS"
         FINDINGS_LEDGER="$LEDGER_FILE"
         FINDINGS_CONTEXT=$(cat "$LEDGER_FILE")
 
@@ -287,7 +288,7 @@ while read -r row; do
         fi
 
         # Run the bot in its own ephemeral nspawn container using overlayfs
-        if ! timeout -k 5m "$REVIEW_TIMEOUT" systemd-nspawn --quiet --keep-unit --register=no \
+        timeout -k 5m "$REVIEW_TIMEOUT" systemd-nspawn --quiet --keep-unit --register=no \
             --machine="$MACHINE_NAME" \
             --volatile=overlay \
             -D /nspawn-root \
@@ -306,14 +307,18 @@ while read -r row; do
             -E PR_REPORT="$PR_REPORT" \
             -E PR_RESOLUTIONS="$PR_RESOLUTIONS" \
             -E FINDINGS_LEDGER="$FINDINGS_LEDGER" \
-            /bin/bash -c "cd $PR_WORKSPACE && ./.opencode_runner.sh" > "/out/nspawn_${SAFE_REPO_NAME}_${PR}.log" 2>&1; then
-
-            EXIT_CODE=$?
+            /bin/bash -c "cd $PR_WORKSPACE && ./.opencode_runner.sh" > "/out/nspawn_${SAFE_REPO_NAME}_${PR}.log" 2>&1
+        EXIT_CODE=$?
+        if [ "$EXIT_CODE" -ne 0 ]; then
             if [ $EXIT_CODE -eq 124 ] || [ $EXIT_CODE -eq 137 ]; then
                 echo "⚠️ Review for PR #$PR in $CURRENT_REPO timed out after $REVIEW_TIMEOUT."
             else
                 echo "⚠️ Review for PR #$PR in $CURRENT_REPO failed with exit code $EXIT_CODE."
             fi
+            rm -f "$PR_REPORT" "$PR_METRICS" "$PR_RESOLUTIONS"
+            cd /app
+            rm -rf "$PR_WORKSPACE"
+            exit "$EXIT_CODE"
         fi
 
         # Ingest report and metrics securely into the encrypted SQL database.
@@ -358,10 +363,16 @@ while read -r row; do
         rm -rf "$PR_WORKSPACE"
         exit 0
     )
-    case $? in
+    REVIEW_STATUS=$?
+    case "$REVIEW_STATUS" in
         0) REVIEWED=$((REVIEWED+1)) ;;
-        2) SKIPPED=$((SKIPPED+1)) ;;
-        *) SKIPPED=$((SKIPPED+1)) ;;
+        200) SKIPPED=$((SKIPPED+1)) ;;
+        *)
+            FAILED_PR=$(echo "$row" | jq -r '.number')
+            echo "ERROR: Backfill stopped at PR #${FAILED_PR}; the failed PR was not marked reviewed."
+            rm -f "$PR_LIST_FILE"
+            exit "$REVIEW_STATUS"
+            ;;
     esac
 done < <(jq -c '.[]' "$PR_LIST_FILE")
 

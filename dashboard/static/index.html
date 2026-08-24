@@ -400,6 +400,12 @@ header {
   outline: none; margin-bottom: 14px;
 }
 .auth-card input:focus { border-color: var(--amber); }
+.auth-label {
+  display: block;
+  font-size: 9.5px; letter-spacing: 0.28em; text-transform: uppercase;
+  color: var(--ink-faint);
+  margin-bottom: 6px;
+}
 .auth-card .btn { width: 100%; padding: 11px; }
 .auth-err { color: var(--crit); font-size: 11px; margin-bottom: 10px; display: none; }
 
@@ -491,10 +497,17 @@ footer {
 <div id="auth-overlay">
   <div class="auth-card">
     <h2>Vault <span>Locked</span></h2>
-    <p>This dashboard requires a bearer token (<code>DASHBOARD_TOKEN</code>). Enter it to decrypt and list reports. The token is kept only in this tab's session storage.</p>
-    <div class="auth-err" id="auth-err">Invalid token — access denied.</div>
-    <input type="password" id="auth-input" placeholder="dashboard token" autocomplete="off">
-    <button class="btn" id="auth-submit">Authenticate</button>
+    <p id="auth-desc"></p>
+    <div class="auth-err" id="auth-err"></div>
+    <div id="auth-token-row" style="display:none">
+      <label class="auth-label" for="auth-token-input">Access token</label>
+      <input type="password" id="auth-token-input" placeholder="dashboard token" autocomplete="off">
+    </div>
+    <div id="auth-pass-row" style="display:none">
+      <label class="auth-label" for="auth-pass-input">Database passphrase</label>
+      <input type="password" id="auth-pass-input" placeholder="SQLCipher passphrase" autocomplete="off">
+    </div>
+    <button class="btn" id="auth-submit">Unlock</button>
   </div>
 </div>
 
@@ -519,42 +532,63 @@ footer {
     (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 
   /* ---------- auth ---------- */
+  const AUTH_ERRORS = ["unauthorized", "bad_passphrase", "passphrase_required"];
+
   function token() { return sessionStorage.getItem("dash_token") || ""; }
+  function pass() { return sessionStorage.getItem("dash_pass") || ""; }
 
   async function api(path) {
     const headers = {};
     if (token()) headers["Authorization"] = "Bearer " + token();
+    if (pass()) headers["X-DB-Passphrase"] = pass();
     const res = await fetch(path, { headers, cache: "no-store" });
-    if (res.status === 401) {
-      showAuth();
-      throw new Error("unauthorized");
-    }
     const body = await res.json().catch(() => ({}));
-    if (!res.ok) throw new Error(body.error || ("HTTP " + res.status));
+    if (!res.ok) {
+      const err = body.error || ("HTTP " + res.status);
+      if (err === "unauthorized") showAuth(true, false, "Invalid token — access denied.");
+      else if (err === "bad_passphrase") showAuth(false, true, "Wrong passphrase — the vault did not decrypt.");
+      else if (err === "passphrase_required") showAuth(false, true);
+      throw new Error(err);
+    }
     return body;
   }
 
-  function showAuth() {
+  // Unlock overlay showing only the fields that are actually needed
+  function showAuth(needToken, needPass, errMsg) {
+    $("auth-token-row").style.display = needToken ? "block" : "none";
+    $("auth-pass-row").style.display = needPass ? "block" : "none";
+    let desc;
+    if (needToken && needPass)
+      desc = "Enter the access token and the database passphrase to unlock the report vault. Both are kept only in this tab's session storage; the passphrase is sent with each request and never stored server-side.";
+    else if (needPass)
+      desc = "Enter the SQLCipher passphrase to decrypt the report vault. It is kept only in this tab's session storage and sent with each request — never stored server-side.";
+    else
+      desc = "This dashboard requires a bearer token (DASHBOARD_TOKEN). It is kept only in this tab's session storage.";
+    $("auth-desc").textContent = desc;
+    const err = $("auth-err");
+    if (errMsg) { err.textContent = errMsg; err.style.display = "block"; }
+    else err.style.display = "none";
     $("auth-overlay").classList.add("show");
     setConn(false, "locked");
-    setTimeout(() => $("auth-input").focus(), 50);
+    setTimeout(() => (needToken ? $("auth-token-input") : $("auth-pass-input")).focus(), 50);
   }
   function hideAuth() { $("auth-overlay").classList.remove("show"); }
 
   $("auth-submit").addEventListener("click", submitAuth);
-  $("auth-input").addEventListener("keydown", (e) => { if (e.key === "Enter") submitAuth(); });
+  for (const id of ["auth-token-input", "auth-pass-input"])
+    $(id).addEventListener("keydown", (e) => { if (e.key === "Enter") submitAuth(); });
   async function submitAuth() {
-    sessionStorage.setItem("dash_token", $("auth-input").value);
+    const t = $("auth-token-input").value;
+    const p = $("auth-pass-input").value;
+    if (t) sessionStorage.setItem("dash_token", t);
+    if (p) sessionStorage.setItem("dash_pass", p);
     $("auth-err").style.display = "none";
     try {
       await loadAll();
       hideAuth();
     } catch (err) {
-      if (String(err.message).includes("unauthorized")) {
-        $("auth-err").style.display = "block";
-      } else {
-        hideAuth();
-      }
+      // api() already re-showed the overlay with the specific failure
+      if (!AUTH_ERRORS.includes(err.message)) hideAuth();
     }
   }
 
@@ -797,20 +831,41 @@ footer {
   $("refresh-btn").addEventListener("click", () => {
     $("refresh-btn").disabled = true;
     loadAll().catch((err) => {
-      if (!String(err.message).includes("unauthorized")) setConn(false, "error");
+      if (!AUTH_ERRORS.includes(err.message)) setConn(false, "error");
     }).finally(() => { $("refresh-btn").disabled = false; });
   });
 
-  loadAll().then(() => {
-    // Deep link: #report-<id> opens that finding directly
-    const m = location.hash.match(/^#report-(\d+)$/);
-    if (m && state.reports.some((r) => r.id === Number(m[1]))) openReport(Number(m[1]));
-  }).catch((err) => {
-    if (String(err.message).includes("unauthorized")) return; // overlay already shown
-    setConn(false, "error");
-    $("report-list").innerHTML =
-      '<div class="empty"><span class="glyph">⚠</span><p>' + esc(err.message) + "</p></div>";
-  });
+  function loadAndLink() {
+    loadAll().then(() => {
+      // Deep link: #report-<id> opens that finding directly
+      const m = location.hash.match(/^#report-(\d+)$/);
+      if (m && state.reports.some((r) => r.id === Number(m[1]))) openReport(Number(m[1]));
+    }).catch((err) => {
+      if (AUTH_ERRORS.includes(err.message)) return; // overlay already shown
+      setConn(false, "error");
+      $("report-list").innerHTML =
+        '<div class="empty"><span class="glyph">⚠</span><p>' + esc(err.message) + "</p></div>";
+    });
+  }
+
+  // Ask the backend what credentials are needed before touching the vault
+  (async function boot() {
+    let health = null;
+    try {
+      const res = await fetch("/api/health", { cache: "no-store" });
+      health = await res.json();
+    } catch (e) { /* fall through to offline state */ }
+    if (!health || !health.ok) {
+      setConn(false, "offline");
+      $("report-list").innerHTML =
+        '<div class="empty"><span class="glyph">⚠</span><p>Dashboard backend unreachable</p></div>';
+      return;
+    }
+    const needToken = health.auth && !token();
+    const needPass = health.passphrase_required && !pass();
+    if (needToken || needPass) showAuth(needToken, needPass);
+    else loadAndLink();
+  })();
 })();
 </script>
 </body>

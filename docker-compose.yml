@@ -38,8 +38,9 @@ services:
     command: python3 /app/dashboard/app.py
     entrypoint: []
     environment:
-      # Same SQLCipher key as the bouncer service (Required)
-      - DB_PASSPHRASE=${DB_PASSPHRASE}
+      # Optional boot-time unlock. When set, the vault opens for all visitors
+      # without a prompt; when empty, each visitor is asked for the passphrase.
+      - DB_PASSPHRASE=${DB_PASSPHRASE:-}
       # Optional bearer token to protect the dashboard (reports are sensitive)
       - DASHBOARD_TOKEN=${DASHBOARD_TOKEN:-}
     volumes:

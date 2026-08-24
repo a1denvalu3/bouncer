@@ -120,10 +120,15 @@ docker compose up -d dashboard
 # open http://localhost:5001
 ```
 
-It uses the same `DB_PASSPHRASE` as the bouncer service and reads the same `./out` volume — the database is never modified. Set `DASHBOARD_TOKEN` to require a bearer token (the UI will prompt for it), and `DASHBOARD_PORT` to change the host port (default: `5001`).
+It reads the same `./out` volume — the database is never modified. The vault can be unlocked two ways:
+
+- **Per-visitor prompt (default):** start the dashboard without `DB_PASSPHRASE` and every visitor is asked for the SQLCipher passphrase in the browser on connect. The passphrase is kept only in the tab's session storage and sent per request (`X-DB-Passphrase` header) — it is never stored server-side. A wrong passphrase is rejected with a re-prompt.
+- **Boot-time unlock:** set `DB_PASSPHRASE` and the vault is open for every visitor without a prompt.
+
+Set `DASHBOARD_TOKEN` to additionally require a bearer token (the UI prompts for both when both are configured), and `DASHBOARD_PORT` to change the host port (default: `5001`). Since credentials travel over plain HTTP, keep the dashboard on localhost or put it behind a TLS-terminating proxy if you expose it.
 
 You can also run it directly on the host (requires `python3` and the `sqlcipher` CLI):
 
 ```bash
-DB_PASSPHRASE=your_key DB_PATH=./out/bouncer.db python3 dashboard/app.py
+DB_PATH=./out/bouncer.db python3 dashboard/app.py   # visitors are prompted for the passphrase
 ```

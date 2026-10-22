@@ -1,0 +1,15 @@
+{
+  "provider": {
+    "${MODEL_PROVIDER}": {
+      "models": {
+        "${MODEL_ID}": {
+          "cost": {
+            "input": ${MODEL_COST_INPUT_PER_MTOK},
+            "output": ${MODEL_COST_OUTPUT_PER_MTOK},
+            "cache_read": ${MODEL_COST_CACHE_READ_PER_MTOK}
+          }
+        }
+      }
+    }
+  }
+}

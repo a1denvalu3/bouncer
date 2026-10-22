@@ -50,6 +50,7 @@ Bouncer is configured using environment variables. Create a `.env` file in the p
   - `ANTHROPIC_API_KEY`
   - `GOOGLE_API_KEY`
   - `KIMI_API_KEY` (Kimi for Coding plan key; pair with `OPENCODE_MODEL=kimi-for-coding/k3` or another model from that provider)
+  - `NUMES_API_KEY` (Numes inference key; pair with `OPENCODE_MODEL=numes/<author>/<model>`)
 - `REPOS`: A comma-separated list of target repositories to monitor (e.g., `org/repo1,org/repo2`).
 - `DB_PASSPHRASE`: A strong passphrase to encrypt the local SQLite (SQLCipher) database containing PR state tracking and generated vulnerability reports. This is strictly required and does not have a default.
 
@@ -83,6 +84,28 @@ Bouncer is configured using environment variables. Create a `.env` file in the p
    ```bash
    docker compose up -d
    ```
+
+### Using Numes.ai
+
+Create an inference API key and add credits following the [Numes quickstart](https://numes.ai/docs/quickstart). Set these variables in `.env`:
+
+```env
+NUMES_API_KEY=sk-your_numes_key_here
+OPENCODE_MODEL=numes/openai/gpt-4.1-nano
+```
+
+Choose a model available to your key that supports tool calling. You can list them with:
+
+```bash
+curl 'https://api.numes.ai/api/v1/models?supported_parameters=tools' \
+  -H "Authorization: Bearer $NUMES_API_KEY"
+```
+
+Prefix the returned model ID with `numes/` in `OPENCODE_MODEL`. Bouncer fetches that model's capabilities and token limits inside each review sandbox, registers Numes using its [recommended OpenCode configuration](https://numes.ai/docs/integrations/coding-agents), and applies its reasoning compatibility plugin. The API key is read from the environment. Continuous reviews, manual reviews, and backfill all support Numes.
+
+USD keys include catalog-based cost estimates in OpenCode metrics. BTC keys omit these USD estimates because their prices are in satoshis. Use Numes's usage records for actual charges.
+
+Rebuild and recreate the service after changing providers: `docker compose up -d --build`.
 
 ### Reviewing a Specific PR Manually
 You can run an isolated review on a specific PR without waiting for or affecting the continuous background polling loop. Use `docker compose run` to spawn a temporary container that performs the review and exits:

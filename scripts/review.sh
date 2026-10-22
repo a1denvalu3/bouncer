@@ -27,8 +27,8 @@ else
     echo "Reporting mode: local (REPORT_REPO unset — findings stay in the encrypted database)"
 fi
 
-if [ -z "$OPENROUTER_API_KEY" ] && [ -z "$OPENAI_API_KEY" ] && [ -z "$ANTHROPIC_API_KEY" ] && [ -z "$GOOGLE_API_KEY" ] && [ -z "$KIMI_API_KEY" ]; then
-    echo "ERROR: At least one API key (OPENROUTER_API_KEY, OPENAI_API_KEY, ANTHROPIC_API_KEY, GOOGLE_API_KEY, or KIMI_API_KEY) must be set."
+if [ -z "$OPENROUTER_API_KEY" ] && [ -z "$OPENAI_API_KEY" ] && [ -z "$ANTHROPIC_API_KEY" ] && [ -z "$GOOGLE_API_KEY" ] && [ -z "$KIMI_API_KEY" ] && [ -z "$NUMES_API_KEY" ]; then
+    echo "ERROR: At least one API key (OPENROUTER_API_KEY, OPENAI_API_KEY, ANTHROPIC_API_KEY, GOOGLE_API_KEY, KIMI_API_KEY, or NUMES_API_KEY) must be set."
     exit 1
 fi
 
@@ -197,6 +197,7 @@ for CURRENT_REPO in $(echo "$REPOS" | tr ',' ' ' | tr '\n' ' '); do
                 -E ANTHROPIC_API_KEY="$ANTHROPIC_API_KEY" \
                 -E GOOGLE_API_KEY="$GOOGLE_API_KEY" \
                 -E KIMI_API_KEY="$KIMI_API_KEY" \
+                -E NUMES_API_KEY="$NUMES_API_KEY" \
                 -E REPORT_REPO="$REPORT_REPO" \
                 -E OPENCODE_MODEL="$OPENCODE_MODEL" \
                 -E PR_METRICS="$PR_METRICS" \

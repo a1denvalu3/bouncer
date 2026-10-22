@@ -9,6 +9,15 @@ gh auth setup-git
 export OPENCODE_AUTO_CONFIRM=true
 export OPENCODE_PERMISSION='{"external_directory": {"*": "allow"}}'
 
+# Configure the custom provider inside the sandbox, before either review phase.
+if [[ "$OPENCODE_MODEL" == numes/* ]]; then
+    if ! NUMES_CONFIG=$(python3 /app/scripts/numes_config.py); then
+        echo "ERROR: Failed to configure the Numes provider."
+        exit 1
+    fi
+    export OPENCODE_CONFIG_CONTENT="$NUMES_CONFIG"
+fi
+
 # 1. Run discovery
 echo "Running discovery..."
 echo "DEBUG: PR_REPORT is set to: $PR_REPORT"

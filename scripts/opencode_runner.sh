@@ -5,7 +5,11 @@ set -o pipefail
 # Obtain IP address for the container's isolated network interface
 dhclient host0 >/dev/null 2>&1
 
-gh auth setup-git
+if [ -n "${GITHUB_TOKEN:-}" ]; then
+    gh auth setup-git
+else
+    export REPORT_REPO=""
+fi
 export OPENCODE_AUTO_CONFIRM=true
 export OPENCODE_PERMISSION='{"external_directory": {"*": "allow"}}'
 

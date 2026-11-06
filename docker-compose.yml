@@ -6,12 +6,12 @@ services:
     container_name: bouncer
     privileged: true
     environment:
-      # Required tokens
-      - GITHUB_TOKEN=${GITHUB_PAT}
-      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY}
-      - OPENAI_API_KEY=${OPENAI_API_KEY}
-      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
-      - GOOGLE_API_KEY=${GOOGLE_API_KEY}
+      # Optional GitHub authentication; absent tokens select local Git scans
+      - GITHUB_TOKEN=${GITHUB_TOKEN:-${GITHUB_PAT:-${GH_TOKEN:-}}}
+      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY:-}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+      - GOOGLE_API_KEY=${GOOGLE_API_KEY:-}
       - NUMES_API_KEY=${NUMES_API_KEY:-}
       - OPENCODE_MODEL=${OPENCODE_MODEL:-openrouter/google/gemini-3.1-pro-preview}
       # Database encryption key (Required)
@@ -21,11 +21,15 @@ services:
       - SLEEP_DURATION=${SLEEP_DURATION:-60}
       - REVIEW_TIMEOUT=${REVIEW_TIMEOUT:-30m}
       - SKIP_PRS=${SKIP_PRS:-}
+      - SKIP_COMMITS=${SKIP_COMMITS:-}
+      - GIT_SCAN_REF=${GIT_SCAN_REF:-}
+      - FINDINGS_BUDGET=${FINDINGS_BUDGET:-10}
+      - BACKFILL_ENFORCE_AUTHOR=${BACKFILL_ENFORCE_AUTHOR:-0}
       - ALLOWED_AUTHOR_ASSOCIATIONS=${ALLOWED_AUTHOR_ASSOCIATIONS:-COLLABORATOR,CONTRIBUTOR,MEMBER,OWNER}
       # Cap on concurrent PR reviews per cycle (0 = unlimited)
       - MAX_WORKER=${MAX_WORKER:-0}
       # Repository to open PRs to with findings
-      - REPORT_REPO=${REPORT_REPO:-myorg/security-audits}
+      - REPORT_REPO=${REPORT_REPO:-}
       # E.g., "octocat/Hello-World"
       - REPOS=${REPOS:-myorg/repo1,myorg/repo2}
     volumes:

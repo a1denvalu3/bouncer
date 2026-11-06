@@ -108,7 +108,7 @@ def fetch_reports():
         reports.append({
             "id": int(rid),
             "repo": unhex(repo_hex),
-            "pr_number": int(pr),
+            "pr_number": int(pr) if pr else None,
             "head_oid": unhex(oid_hex),
             "created_at": created,
             "metrics": metrics,
@@ -152,7 +152,14 @@ def fetch_ledgers():
 
 
 def fetch_review_count():
-    out = run_sql("SELECT count(*) FROM pr_reviews;")
+    # Older databases remain readable before the scanner applies migration 4.
+    has_git_reviews = "git_reviews" in run_sql(
+        "SELECT name FROM sqlite_master WHERE type='table' AND name='git_reviews';"
+    ).splitlines()
+    query = "SELECT count(*) FROM pr_reviews;"
+    if has_git_reviews:
+        query = "SELECT (SELECT count(*) FROM pr_reviews) + (SELECT count(*) FROM git_reviews);"
+    out = run_sql(query)
     for line in out.splitlines():
         if line == "ok" or not line.strip():
             continue

@@ -450,7 +450,7 @@ footer {
     <aside class="list-pane">
       <div class="pane-head">
         <div class="pane-title"><span>Findings</span><span class="count" id="list-count"></span></div>
-        <div class="search-row"><input id="search" type="text" placeholder="filter: title, repo, PR #…" autocomplete="off"></div>
+        <div class="search-row"><input id="search" type="text" placeholder="filter: title, repo, PR #, commit…" autocomplete="off"></div>
       </div>
       <div class="filters" id="filters"></div>
       <div class="report-list" id="report-list"></div>
@@ -689,7 +689,7 @@ footer {
         "</div>" +
         '<div class="ri-meta">' +
           '<span class="repo">' + esc(r.repo) + "</span>" +
-          "<span>PR #" + esc(r.pr_number) + "</span>" +
+          "<span>" + esc(r.pr_number == null ? "Commit " + r.head_oid.slice(0, 10) : "PR #" + r.pr_number) + "</span>" +
           "<span>" + esc(r.created_at) + "</span>" +
         "</div>";
       b.addEventListener("click", () => openReport(r.id));
@@ -712,8 +712,10 @@ footer {
     $("v-body").textContent = "Decrypting…";
     $("v-sub").innerHTML =
       "<span>" + esc(r.repo) + "</span>" +
-      '<a href="https://github.com/' + esc(r.repo) + "/pull/" + esc(r.pr_number) +
-        '" target="_blank" rel="noopener">PR #' + esc(r.pr_number) + " ↗</a>" +
+      '<a href="https://github.com/' + esc(r.repo) +
+        (r.pr_number == null ? "/commit/" + esc(r.head_oid) : "/pull/" + esc(r.pr_number)) +
+        '" target="_blank" rel="noopener">' +
+        esc(r.pr_number == null ? "Commit " + r.head_oid.slice(0, 10) : "PR #" + r.pr_number) + " ↗</a>" +
       "<span>oid " + esc((r.head_oid || "").slice(0, 10)) + "</span>" +
       "<span>" + esc(r.created_at) + "</span>" +
       "<span>" + fmtSize(r.report_size) + "</span>";
@@ -765,7 +767,8 @@ footer {
     if (state.selectedText == null) return;
     const r = state.reports.find((x) => x.id === state.selectedId);
     const name =
-      (r ? r.repo.replace("/", "_") + "_pr" + r.pr_number : "report_" + state.selectedId) +
+      (r ? r.repo.replace("/", "_") +
+        (r.pr_number == null ? "_commit_" + r.head_oid.slice(0, 10) : "_pr" + r.pr_number) : "report_" + state.selectedId) +
       (r && r.fm.slug ? "_" + r.fm.slug : "") + ".md";
     const blob = new Blob([state.selectedText], { type: "text/markdown" });
     const a = document.createElement("a");

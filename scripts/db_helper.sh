@@ -113,6 +113,17 @@ mark_report_resolved() {
     execute_sql "$sql"
 }
 
+# Commit reports have a NULL pr_number and use their actual SHA for identity.
+mark_commit_report_resolved() {
+    local repo="$1" original_oid="$2" resolved_by="$3" reason="$4"
+    local reason_hex
+    reason_hex=$(printf '%s' "$reason" | od -A n -v -t x1 | tr -d ' \n')
+    execute_sql "UPDATE pr_reports SET resolved_by_commit='${resolved_by}',
+        resolved_reason=CAST(X'${reason_hex}' AS TEXT), resolved_at=CURRENT_TIMESTAMP
+        WHERE repo='${repo}' AND pr_number IS NULL AND head_oid='${original_oid}'
+        AND resolved_by_commit IS NULL;"
+}
+
 # Retrieve the carry-forward findings ledger for a repo (empty if none exists yet)
 get_ledger() {
     local repo="$1"

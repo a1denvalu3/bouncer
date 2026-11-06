@@ -18,7 +18,7 @@ END_ARG="$3"
 
 if [ -z "$CURRENT_REPO" ]; then
     echo "Usage: $0 <repository> [start] [end]"
-    echo "  start/end: a PR number (e.g. 42) or a date (e.g. 2023-01-01). Optional."
+    echo "  start/end: date or PR number with a token; date or commit SHA without one. Optional."
     echo "Example: $0 cashubtc/nutshell            # every merged PR, from the beginning"
     echo "Example: $0 cashubtc/nutshell 100 500    # merged PRs between PR #100 and PR #500"
     echo "Example: $0 cashubtc/nutshell 2023-01-01 # merged PRs since 2023-01-01"
@@ -28,9 +28,9 @@ fi
 # Sanitize repo for SQL interpolation (same pattern as migrate_db.sh)
 CURRENT_REPO=$(echo "$CURRENT_REPO" | tr -d "'")
 
+source /app/scripts/repository_access.sh
 if [ -z "$GITHUB_TOKEN" ]; then
-    echo "ERROR: GITHUB_TOKEN must be set."
-    exit 1
+    exec /app/scripts/git_scan.sh backfill "$CURRENT_REPO" "$START_ARG" "$END_ARG"
 fi
 
 # REPORT_REPO is optional: when unset, findings are only stored in the local

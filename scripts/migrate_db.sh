@@ -1,5 +1,7 @@
 #!/bin/bash
 
+set -eo pipefail
+
 # migrate_db.sh
 # Handles SQL schema creation and zero-data-loss migrations from old JSON/file state
 
@@ -103,6 +105,23 @@ if [ "$VERSION" -lt 3 ]; then
     INSERT INTO schema_migrations(version) VALUES(3);
     "
     echo "Migration 2 -> 3 complete."
+fi
+
+VERSION=$(execute_sql "SELECT COALESCE(MAX(version), 0) FROM schema_migrations;")
+if [ "$VERSION" -lt 4 ]; then
+    echo "Running migration 3 -> 4 (Adding Git commit reviews)..."
+    execute_sql "
+    BEGIN;
+    CREATE TABLE IF NOT EXISTS git_reviews (
+        repo TEXT NOT NULL,
+        head_oid TEXT NOT NULL,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (repo, head_oid)
+    );
+    ALTER TABLE pr_reports ADD COLUMN resolved_by_commit TEXT;
+    INSERT INTO schema_migrations(version) VALUES(4);
+    COMMIT;
+    "
 fi
 
 echo "Database initialization complete."

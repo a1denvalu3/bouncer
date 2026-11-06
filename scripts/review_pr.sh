@@ -11,14 +11,15 @@ CURRENT_REPO="$1"
 PR="$2"
 
 if [ -z "$CURRENT_REPO" ] || [ -z "$PR" ]; then
-    echo "Usage: $0 <repository> <pr_number>"
+    echo "Usage: $0 <repository> <pr_number|commit_sha|git_ref>"
+    echo "  PR numbers require a GitHub token; without one, provide a commit SHA or Git ref."
     echo "Example: $0 cashubtc/nutshell 42"
     exit 1
 fi
 
+source /app/scripts/repository_access.sh
 if [ -z "$GITHUB_TOKEN" ]; then
-    echo "ERROR: GITHUB_TOKEN must be set."
-    exit 1
+    exec /app/scripts/git_scan.sh single "$CURRENT_REPO" "$PR"
 fi
 
 # REPORT_REPO is optional: when unset, findings are only stored in the local

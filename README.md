@@ -1,9 +1,9 @@
 <div align="center"><img src="assets/icon.png" alt="Bouncer Icon" width="438" height="438"/></div>
 
 # Bouncer
-Bouncer is an automated, continuous security review tool that monitors GitHub Pull Requests for vulnerabilities. It runs inside a Docker container, periodically polling configured repositories. Using AI (`opencode-ai` + OpenRouter), it strictly analyzes new PR diffs to discover critical security vulnerabilities and attempts to verify them. 
+Bouncer is an automated security review tool for GitHub repositories. It runs inside Docker and uses AI (`opencode-ai` with your configured provider) to discover and verify vulnerabilities. With a GitHub token, it reviews pull requests. Without a token, it uses ordinary Git commands to review commits and keeps all findings local.
 
-If a serious vulnerability is confirmed with a working Proof of Concept (PoC), Bouncer automatically drafts a formatted security report and opens a pull request directly to your designated private security repository.
+If a serious vulnerability is confirmed with a working Proof of Concept (PoC), Bouncer drafts a formatted security report. Findings stay in the local encrypted database unless you configure a GitHub token and a private report repository for automatic PR submission.
 
 <div align="center"><img src="assets/bouncer-continous.png" alt="Bouncer Workflow" width="800"/></div>
 
@@ -43,7 +43,6 @@ Because each `systemd-nspawn` sandbox boots into its own fully isolated network 
 Bouncer is configured using environment variables. Create a `.env` file in the project root or configure them directly in `docker-compose.yml`.
 
 ### Required Variables
-- `GITHUB_PAT` (or `GITHUB_TOKEN`): A GitHub Personal Access Token. Needs read access to the target `REPOS` and read/write access to the `REPORT_REPO`.
 - **At least one API key** for LLM access:
   - `OPENROUTER_API_KEY`
   - `OPENAI_API_KEY`
@@ -51,22 +50,25 @@ Bouncer is configured using environment variables. Create a `.env` file in the p
   - `GOOGLE_API_KEY`
   - `KIMI_API_KEY` (Kimi for Coding plan key; pair with `OPENCODE_MODEL=kimi-for-coding/k3` or another model from that provider)
   - `NUMES_API_KEY` (Numes inference key; pair with `OPENCODE_MODEL=numes/<author>/<model>`)
-- `REPOS`: A comma-separated list of target repositories to monitor (e.g., `org/repo1,org/repo2`).
+- `REPOS`: A comma-separated list of target repositories to monitor in continuous mode (e.g., `org/repo1,org/repo2`). Manual and backfill runs take the repository as an argument instead.
 - `DB_PASSPHRASE`: A strong passphrase to encrypt the local SQLite (SQLCipher) database containing PR state tracking and generated vulnerability reports. This is strictly required and does not have a default.
 
 ### Optional Variables
-- `REPORT_REPO`: The private repository where security findings will be submitted as PRs. **Optional** — when unset or empty, Bouncer runs in **local-only reporting mode**: all findings (including confirmed, PoC-backed ones) are stored only in the encrypted local database, and the AI agents are explicitly instructed not to open PRs, push branches, or comment anywhere. (If you use `docker-compose.yml`, remove or empty the `REPORT_REPO` line there for local-only mode.)
+- `GITHUB_TOKEN`, `GITHUB_PAT`, or `GH_TOKEN`: Optional GitHub authentication (in that precedence order). With a token, Bouncer uses the existing GitHub PR workflow. Without one, it clones public repositories over HTTPS with Git and forces local reporting, even if `REPORT_REPO` is set. Private repositories require appropriate Git access; the default token-free HTTPS path does not provide credentials.
+- `REPORT_REPO`: The private repository where findings will be submitted as PRs. Defaults to empty, including in Compose. Remote reporting requires both this variable and a GitHub token with read/write access to the report repository. Otherwise findings stay in the encrypted local database.
 - `OPENCODE_MODEL`: The AI model to use (default: `openrouter/google/gemini-3.1-pro-preview`).
 - `SLEEP_DURATION`: Time in seconds to sleep between review cycles (default: `60`).
 - `REVIEW_TIMEOUT`: Maximum execution time for a single PR review before it is forcibly killed. Accepts standard `timeout` command formats like "6h", "30m" (default: `30m`).
 - `DASHBOARD_TOKEN`: Optional bearer token protecting the report dashboard. Strongly recommended — the dashboard exposes full vulnerability reports. When unset, the dashboard is unauthenticated and should only be bound to localhost.
-- `PR_MAX_AGE`: How far back to look for active PRs. Supports `date` tool formats like "4 months", "30 days", "1 year" (default: `4 months`).
+- `PR_MAX_AGE`: How far back to look for active PRs, or default-branch commits in token-free continuous mode (by committer date). Supports `date` tool formats like "4 months", "30 days", "1 year" (default: `4 months`).
 - `SKIP_PRS`: A comma-separated list of PRs to explicitly ignore, formatted as `org/repo#pr` (e.g., `myorg/repo1#139,myorg/repo2#42`).
-- `ALLOWED_AUTHOR_ASSOCIATIONS`: A comma-separated list of GitHub author associations allowed to trigger reviews. This acts as a configurable security feature to prevent execution on PRs from unknown users (default: `COLLABORATOR,CONTRIBUTOR,MEMBER,OWNER`).
+- `SKIP_COMMITS`: A comma-separated list of token-free review units to ignore, formatted as `org/repo@<full-commit-SHA>`.
+- `GIT_SCAN_REF`: Git ref to scan without a token (default: `origin/HEAD`, the remote default branch). For another branch, use e.g. `origin/release`.
+- `ALLOWED_AUTHOR_ASSOCIATIONS`: A comma-separated list of GitHub author associations allowed to trigger PR reviews (default: `COLLABORATOR,CONTRIBUTOR,MEMBER,OWNER`). Git-only scans review commits already integrated into the selected branch; Git does not expose GitHub author associations or PR state.
 - `MAX_WORKER`: Maximum number of PR reviews to run concurrently per cycle. `0` (default) means unlimited — every eligible PR is launched in parallel. When set to a positive integer, the review loop blocks until a slot frees up before launching another review, capping resource usage on hosts with limited CPU/memory.
 - `FINDINGS_BUDGET`: Maximum number of entries kept in the carry-forward findings ledger used by backfill mode (default: `10`). When exceeded, the least important findings (lowest severity, `theoretical` before `confirmed`, oldest first) are evicted.
 - `MODEL_COST_INPUT_PER_MTOK` / `MODEL_COST_OUTPUT_PER_MTOK` / `MODEL_COST_CACHE_READ_PER_MTOK`: Per-token pricing overrides (USD per 1M tokens) injected into opencode's config so cost metrics are recorded. Applied automatically with Kimi K3 list prices when `OPENCODE_MODEL=kimi-for-coding/k3` (the Kimi for Coding subscription carries $0 pricing in models.dev, so without this every review logs `Total Cost $0.00`). For any other model the override applies only when at least one of the variables is set (unset ones default to the K3 list prices `3.00`/`15.00`/`0.30`).
-- `BACKFILL_ENFORCE_AUTHOR`: Set to `1` to apply the `ALLOWED_AUTHOR_ASSOCIATIONS` filter in backfill mode. Backfill skips this filter by default because it reviews maintainer-merged historical PRs, whose authors often show a `NONE` association today.
+- `BACKFILL_ENFORCE_AUTHOR`: Set to `1` to apply the `ALLOWED_AUTHOR_ASSOCIATIONS` filter in backfill mode. Backfill skips this filter by default because it reviews maintainer-merged historical PRs, whose authors often show a `NONE` association today. Requires a GitHub token; Git-only runs reject this setting rather than silently bypassing it.
 
 ## Usage
 
@@ -114,8 +116,14 @@ You can run an isolated review on a specific PR without waiting for or affecting
 docker compose run --rm bouncer /app/scripts/review_pr.sh myorg/myrepo 42
 ```
 
+Without a GitHub token, the same entry point accepts a commit SHA or Git ref instead of a PR number:
+
+```bash
+docker compose run --rm bouncer /app/scripts/review_pr.sh myorg/myrepo <commit-SHA>
+```
+
 ### Historical Backfill Mode (Chained Whole-Repo Scan)
-Backfill mode scans a whole repository by reviewing every **merged** PR sequentially, from the beginning of its history (or a start point in the past) up to the latest merged PR. Each review runs in the same isolated `systemd-nspawn` sandbox as continuous mode, but reviews are **chained**: a findings ledger is carried forward from one PR to the next, so the agent knows which vulnerabilities were already discovered, avoids duplicates, and notices when a later PR fixes an earlier finding. The ledger is bounded by `FINDINGS_BUDGET` — when it grows past the budget, the least important findings are evicted.
+With a GitHub token, backfill mode reviews every **merged** PR sequentially, from the beginning of its history (or a start point in the past) up to the latest merged PR. Each review runs in the same isolated `systemd-nspawn` sandbox as continuous mode, but reviews are **chained**: a findings ledger is carried forward from one PR to the next, so the agent knows which vulnerabilities were already discovered, avoids duplicates, and notices when a later PR fixes an earlier finding. The ledger is bounded by `FINDINGS_BUDGET` — when it grows past the budget, the least important findings are evicted.
 
 ```bash
 # Scan every merged PR from the beginning of the repo's history
@@ -127,6 +135,33 @@ docker compose run --rm bouncer /app/scripts/backfill.sh myorg/myrepo 2023-01-01
 ```
 
 Backfill is **resumable**: reviewed PRs are recorded in the encrypted database, so re-running the same command after an interruption continues where it stopped. Reports and metrics are ingested into the database exactly as in continuous mode, and confirmed PoC-backed findings are submitted as PRs to `REPORT_REPO` when it is configured (otherwise they stay local-only). When a later PR fixes, invalidates, or disproves a finding whose report was already submitted, the verifier closes the now-stale report PR in `REPORT_REPO` with a comment referencing the resolving PR (remote mode only; entries dropped by budget eviction are left alone, since those findings still stand). In **both** modes the original report in the local database is marked as resolved (`resolved_by_pr`, `resolved_reason`, `resolved_at` on `pr_reports`), so the resolution lifecycle is tracked even without a report repository. Note that a full-history scan is a long, cost-intensive operation — narrow the range or lower the budget as needed.
+
+### Token-free Local Backfill
+
+No GitHub token is needed to scan a public repository. For example, create `.env` with:
+
+```env
+NUMES_API_KEY=your_numes_key
+OPENCODE_MODEL=numes/openai/gpt-6-luna
+DB_PASSPHRASE=your_strong_database_passphrase
+```
+
+Leave `GITHUB_TOKEN`, `GITHUB_PAT`, and `GH_TOKEN` unset, then run:
+
+```bash
+docker compose build bouncer
+docker compose run --rm bouncer /app/scripts/backfill.sh owner/repo
+
+# Optional inclusive date window (UTC committer dates)
+docker compose run --rm bouncer /app/scripts/backfill.sh owner/repo 2024-01-01 2024-12-31
+
+# Optional inclusive commit window, both on the selected first-parent history
+docker compose run --rm bouncer /app/scripts/backfill.sh owner/repo <start-SHA> <end-SHA>
+```
+
+This path uses `git clone`, `fetch`, `log`, `checkout`, and `diff-tree`; it never invokes `gh` or the GitHub API. It walks the remote default branch's **first-parent history**, oldest first, and reviews each commit against its first parent (or the empty tree for the root). Merge commits, squash commits, and direct commits are included. Side-branch commits are covered by their integrated merge diff. Git cannot reliably reconstruct PR numbers, merge dates, or author associations, so PR-number bounds are unavailable without a token. Continuous mode uses this same Git path, and `MAX_WORKER` applies only to authenticated PR reviews; Git reviews run sequentially to preserve ledger order.
+
+Reports remain local even if `REPORT_REPO` is configured. Resume state is keyed by the full commit SHA in `git_reviews`, separate from PR state, and the carry-forward ledger is stored under `git:owner/repo`. The dashboard displays commit links for these reports. When later commits resolve findings, `resolved_by_commit` tracks the resolving SHA. Logs are saved to `./out/git_<owner>_<repo>_<SHA>.log`. Rerun with the same `./out/bouncer.db` and `DB_PASSPHRASE` to resume; failed reviews are retried. Git scan modes share commit state and the Git findings ledger for each repository.
 
 ## Logs and Output
 

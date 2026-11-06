@@ -1,2 +1,4 @@
 out/
 bouncer.tar.gz
+.env
+__pycache__/

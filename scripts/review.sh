@@ -12,9 +12,18 @@ if [ -z "$REPOS" ] && [ -n "$REPO_NAME" ]; then
     REPOS="$REPO_NAME"
 fi
 
-if [ -z "$REPOS" ] || [ -z "$GITHUB_TOKEN" ]; then
-    echo "ERROR: REPOS (or REPO_NAME) and GITHUB_TOKEN must be set."
+if [ -z "$REPOS" ]; then
+    echo "ERROR: REPOS (or REPO_NAME) must be set."
     exit 1
+fi
+
+source /app/scripts/repository_access.sh
+if [ -z "$GITHUB_TOKEN" ]; then
+    STATUS=0
+    for CURRENT_REPO in $(echo "$REPOS" | tr ',' ' ' | tr '\n' ' '); do
+        /app/scripts/git_scan.sh continuous "$CURRENT_REPO" || STATUS=$?
+    done
+    exit "$STATUS"
 fi
 
 # REPORT_REPO is optional: when unset, findings are only stored in the local
